@@ -126,7 +126,8 @@ function ConvertFrom-Yaml {
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
-        [string]$Yaml
+        [string]$Yaml,
+        [switch]$AllDocuments=$false
     )
     PROCESS {
         $documents = Get-YamlDocuments -Yaml $Yaml
@@ -134,6 +135,9 @@ function ConvertFrom-Yaml {
             return
         }
         if($documents.Count -eq 1){
+            return Convert-YamlDocumentToPSObject $documents[0].RootNode
+        }
+        if(!$AllDocuments) {
             return Convert-YamlDocumentToPSObject $documents[0].RootNode
         }
         $ret = @()
