@@ -7,6 +7,8 @@ The ```lib``` folder contains the YamlDotNet assemblies. They are not really req
 ## ConvertTo-Yaml
 
 ```powershell
+Import-Module powershell-yaml
+
 PS C:\> $yaml = ConvertTo-Yaml @{"hello"="world"; "anArray"=@(1,2,3); "nested"=@{"array"=@("this", "is", "an", "array")}}
 PS C:\> $yaml
 anArray:
@@ -27,6 +29,8 @@ hello: world
 ### Single YAML document
 
 ```powershell
+Import-Module powershell-yaml
+
 PS C:\> $yaml = @"
 anArray:
 - 1
@@ -62,6 +66,8 @@ True     True     Hashtable                                System.Object
 Unserializing multiple documents results in an array representing the contents of each document. The result of this does not translate back to the same documents if you pass it back through ConvertTo-Yaml.
 
 ```powershell
+Import-Module powershell-yaml
+
 PS C:\> $yaml = @"
 ---
 anArray:
