@@ -31,7 +31,7 @@ ModuleVersion = '0.1'
 GUID = '6a75a662-7f53-425a-9777-ee61284407da'
 
 # Author of this module
-Author = 'Gabriel Adrian Samfira'
+Author = 'Gabriel Adrian Samfira','Alessandro Pilotti'
 
 # Company or vendor of this module
 CompanyName = 'Cloudbase Solutions SRL'
