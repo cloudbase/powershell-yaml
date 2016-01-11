@@ -21,7 +21,7 @@ function Get-YamlDocuments {
     )
     PROCESS {
         $stringReader = new-object System.IO.StringReader($Yaml)
-        $yamlStream = [YamlDotNet.RepresentationModel.YamlStream]::New("")
+        $yamlStream = New-Object "YamlDotNet.RepresentationModel.YamlStream"
         $yamlStream.Load([System.IO.TextReader] $stringReader)
         $stringReader.Close()
         return $yamlStream
@@ -84,11 +84,10 @@ function Convert-HashtableToDictionary {
         [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
         [hashtable]$Data
     )
-    $new = [System.Collections.Generic.Dictionary[string,object]]::New()
-    foreach($i in $data.GetEnumerator()) {
-        $new[$i.Name] = Convert-PSObjectToGenericObject $i.Value
+    foreach($i in $($data.Keys)) {
+        $Data[$i] = Convert-PSObjectToGenericObject $Data[$i]
     }
-    return $new
+    return $Data
 }
 
 function Convert-ListToGenericList {
@@ -96,12 +95,10 @@ function Convert-ListToGenericList {
         [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
         [array]$Data
     )
-    $new = [System.Collections.Generic.List[object]]::New()
-    for($i=0; $i -lt $data.Count; $i++) {
-        $obj = Convert-PSObjectToGenericObject $Data[$i]
-        $new.Add($obj)
+    for($i=0; $i -lt $Data.Count; $i++) {
+        $Data[$i] = Convert-PSObjectToGenericObject $Data[$i]
     }
-    return $new
+    return $Data
 }
 
 function Convert-PSCustomObjectToDictionary {
@@ -109,7 +106,7 @@ function Convert-PSCustomObjectToDictionary {
         [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
         [PSCustomObject]$Data
     )
-    $ret = [System.Collections.Generic.Dictionary[string,object]]::New()
+    $ret = [System.Collections.Generic.Dictionary[string,object]](New-Object 'System.Collections.Generic.Dictionary[string,object]')
     foreach ($i in $Data.psobject.properties) {
         $ret[$i.Name] = Convert-PSObjectToGenericObject $i.Value
     }
@@ -121,17 +118,19 @@ function Convert-PSObjectToGenericObject {
         [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
         [System.Object]$Data
     )
-    switch($data.GetType().FullName) {
-        "System.Collections.Hashtable" {
-            return Convert-HashtableToDictionary $data
-        }
-        "System.Collections.ArrayList" {
-            return Convert-ListToGenericList $data
-        }
-        "System.Management.Automation.PSCustomObject" {
+    # explicitly cast object to its type. Without this, it gets wrapped inside a powershell object
+    # which causes YamlDotNet to fail
+    $data = $data -as $data.GetType().FullName
+    switch($data.GetType()) {
+        ($_.FullName -eq "System.Management.Automation.PSCustomObject") {
             return Convert-PSCustomObjectToDictionary
         }
         default {
+            if($_.GetInterfaces().Name -match "IDictionary"){
+                return Convert-HashtableToDictionary $data
+            } elseif ($_.GetInterfaces().Name -match "IList") {
+                return Convert-ListToGenericList $data
+            }
             return $data
         }
     }
@@ -171,8 +170,8 @@ function ConvertTo-Yaml {
     )
     PROCESS {
         $norm = Convert-PSObjectToGenericObject $Data
-        $wrt = [System.IO.StringWriter]::new()
-        $serializer = [YamlDotNet.Serialization.Serializer]::New()
+        $wrt = New-Object "System.IO.StringWriter"
+        $serializer = New-Object "YamlDotNet.Serialization.Serializer" 0
         $serializer.Serialize($wrt, $norm)
         $wrt.Close()
         return $wrt.ToString()

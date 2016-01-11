@@ -44,11 +44,10 @@ function Get-IsNanoServer {
 
 function Initialize-Assemblies {
     $isNano = Get-IsNanoServer
+    $assemblyDir = Join-Path $libDir "net35"
     if($isNano){
         # Load the portable assembly
         $assemblyDir = Join-Path $libDir "net45"
-    } else {
-        $assemblyDir = Join-Path $libDir "net35"
     }
     $assemblyFile = Join-Path $assemblyDir "YamlDotNet.dll"
     try {
