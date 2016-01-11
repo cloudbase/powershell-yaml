@@ -161,11 +161,14 @@ function Convert-PSObjectToGenericObject {
 function ConvertFrom-Yaml {
     [CmdletBinding()]
     Param(
-        [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
+        [Parameter(Mandatory=$false, ValueFromPipeline=$true)]
         [string]$Yaml,
         [switch]$AllDocuments=$false
     )
-    END {
+    PROCESS {
+        if(!$Yaml){
+            return
+        }
         $documents = Get-YamlDocuments -Yaml $Yaml
         if (!$documents.Count) {
             return
@@ -187,7 +190,7 @@ function ConvertFrom-Yaml {
 function ConvertTo-Yaml {
     [CmdletBinding()]
     Param(
-        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
+        [Parameter(Mandatory=$false,ValueFromPipeline=$true)]
         [System.Object]$Data
     )
     BEGIN {
@@ -197,6 +200,9 @@ function ConvertTo-Yaml {
         $d.Add($data)
     }
     END {
+        if(!$d){
+            return
+        }
         $norm = Convert-PSObjectToGenericObject $d
         $wrt = New-Object "System.IO.StringWriter"
         $serializer = New-Object "YamlDotNet.Serialization.Serializer" 0
