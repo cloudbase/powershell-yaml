@@ -126,9 +126,9 @@ function Convert-PSObjectToGenericObject {
             return Convert-PSCustomObjectToDictionary
         }
         default {
-            if($_.GetInterfaces().Name -match "IDictionary"){
+            if (([System.Collections.IDictionary].IsAssignableFrom($_.GetType()))){
                 return Convert-HashtableToDictionary $data
-            } elseif ($_.GetInterfaces().Name -match "IList") {
+            } elseif (([System.Collections.IList].IsAssignableFrom($_.GetType()))) {
                 return Convert-ListToGenericList $data
             }
             return $data
