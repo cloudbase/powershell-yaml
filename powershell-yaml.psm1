@@ -35,7 +35,7 @@ function Convert-YamlMappingToHashtable {
         [YamlDotNet.RepresentationModel.YamlMappingNode]$Node
     )
     PROCESS {
-        $ret = @{}
+        $ret = [System.Collections.Generic.Dictionary[string,object]](New-Object "System.Collections.Generic.Dictionary[string,object]")
         foreach($i in $Node.Children.Keys) {
             $ret[$i.Value] = Convert-YamlDocumentToPSObject $Node.Children[$i]
         }
@@ -50,9 +50,9 @@ function Convert-YamlSequenceToArray {
         [YamlDotNet.RepresentationModel.YamlSequenceNode]$Node
     )
     PROCESS {
-        $ret = @()
+        $ret = [System.Collections.Generic.List[object]](New-Object "System.Collections.Generic.List[object]")
         foreach($i in $Node.Children){
-            $ret += Convert-YamlDocumentToPSObject $i
+            $ret.Add((Convert-YamlDocumentToPSObject $i))
         }
         return $ret
     }
@@ -126,9 +126,9 @@ function Convert-PSObjectToGenericObject {
             return Convert-PSCustomObjectToDictionary
         }
         default {
-            if (([System.Collections.IDictionary].IsAssignableFrom($_.GetType()))){
+            if (([System.Collections.IDictionary].IsAssignableFrom($_))){
                 return Convert-HashtableToDictionary $data
-            } elseif (([System.Collections.IList].IsAssignableFrom($_.GetType()))) {
+            } elseif (([System.Collections.IList].IsAssignableFrom($_))) {
                 return Convert-ListToGenericList $data
             }
             return $data
@@ -143,7 +143,7 @@ function ConvertFrom-Yaml {
         [string]$Yaml,
         [switch]$AllDocuments=$false
     )
-    PROCESS {
+    END {
         $documents = Get-YamlDocuments -Yaml $Yaml
         if (!$documents.Count) {
             return
@@ -168,8 +168,14 @@ function ConvertTo-Yaml {
         [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
         [System.Object]$Data
     )
+    BEGIN {
+        $d = [System.Collections.Generic.List[object]](New-Object "System.Collections.Generic.List[object]")
+    }
     PROCESS {
-        $norm = Convert-PSObjectToGenericObject $Data
+        $d.Add($data)
+    }
+    END {
+        $norm = Convert-PSObjectToGenericObject $d
         $wrt = New-Object "System.IO.StringWriter"
         $serializer = New-Object "YamlDotNet.Serialization.Serializer" 0
         $serializer.Serialize($wrt, $norm)
