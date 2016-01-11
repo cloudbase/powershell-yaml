@@ -28,6 +28,28 @@ function Get-YamlDocuments {
     }
 }
 
+function Convert-ValueToProperType {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
+        [System.Object]$Value
+    )
+    PROCESS {
+        if (!($Value -is [string])) {
+            return $Value
+        }
+        $types = @([int], [long], [double], [boolean], [datetime])
+        foreach($i in $types){
+            try {
+                return $i::Parse($Value)
+            } catch {
+                continue
+            }
+        }
+        return $Value
+    }
+}
+
 function Convert-YamlMappingToHashtable {
     [CmdletBinding()]
     Param(
@@ -73,7 +95,7 @@ function Convert-YamlDocumentToPSObject {
                 return Convert-YamlSequenceToArray $Node
             }
             "YamlDotNet.RepresentationModel.YamlScalarNode" {
-                return $Node.Value
+                return (Convert-ValueToProperType $Node.Value)
             }
         }
     }
