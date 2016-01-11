@@ -57,7 +57,7 @@ function Convert-YamlMappingToHashtable {
         [YamlDotNet.RepresentationModel.YamlMappingNode]$Node
     )
     PROCESS {
-        $ret = [System.Collections.Generic.Dictionary[string,object]](New-Object "System.Collections.Generic.Dictionary[string,object]")
+        $ret = @{}
         foreach($i in $Node.Children.Keys) {
             $ret[$i.Value] = Convert-YamlDocumentToPSObject $Node.Children[$i]
         }
