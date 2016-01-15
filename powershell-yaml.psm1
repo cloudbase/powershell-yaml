@@ -211,3 +211,5 @@ function ConvertTo-Yaml {
         return $wrt.ToString()
     }
 }
+
+Export-ModuleMember -Function * -Alias *
