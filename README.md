@@ -117,4 +117,22 @@ Name                           Value
 ----                           -----
 goodbye                        world
 second                         document
-``` 
+```
+
+## Running the tests.
+
+Before running the associated unit tests; please make sure you have
+[Pester](https://github.com/pester/pester) installed, as it is the testing
+framework of choice.
+
+After Pester is up and running, the tests may be ran by simply entering the
+tests directory and running `Invoke-Pester`:
+
+```
+PS C:\> cd <repo-directory>\Tests
+PS C:\path\to\repo-directory> Invoke-Pester
+```
+
+NOTE: Be sure to have all the necessary assemblies loaded before running the
+tests.
+The easiest way of doing so is just running the default `Load-Assemblies.ps1`.
