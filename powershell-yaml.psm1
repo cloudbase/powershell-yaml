@@ -191,7 +191,10 @@ function ConvertTo-Yaml {
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$false,ValueFromPipeline=$true)]
-        [System.Object]$Data
+        [System.Object]$Data,
+        [Parameter(Mandatory=$false)]
+        [string]$OutFile,
+        [switch]$Force=$false
     )
     BEGIN {
         $d = [System.Collections.Generic.List[object]](New-Object "System.Collections.Generic.List[object]")
@@ -204,11 +207,29 @@ function ConvertTo-Yaml {
             return
         }
         $norm = Convert-PSObjectToGenericObject $d
-        $wrt = New-Object "System.IO.StringWriter"
-        $serializer = New-Object "YamlDotNet.Serialization.Serializer" 0
-        $serializer.Serialize($wrt, $norm)
-        $wrt.Close()
-        return $wrt.ToString()
+        if($OutFile) {
+            $parent = Split-Path $OutFile
+            if(!(Test-Path $parent)) {
+                Throw "Parent folder for specified path does not exist"
+            }
+            if((Test-Path $OutFile) -and !$Force){
+                Throw "Target file already exists. Use -Force to overwrite."
+            }
+            $wrt = New-Object "System.IO.StreamWriter" $OutFile
+        } else {
+            $wrt = New-Object "System.IO.StringWriter"
+        }
+        try {
+            $serializer = New-Object "YamlDotNet.Serialization.Serializer" 0
+            $serializer.Serialize($wrt, $norm)
+        } finally {
+            $wrt.Close()
+        }
+        if($OutFile){
+            return
+        }else {
+            return $wrt.ToString()
+        }
     }
 }
 
