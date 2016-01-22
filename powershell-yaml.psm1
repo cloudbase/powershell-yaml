@@ -185,7 +185,7 @@ function ConvertFrom-Yaml {
         }
         return $ret
     }
-} 
+}
 
 function ConvertTo-Yaml {
     [CmdletBinding()]
