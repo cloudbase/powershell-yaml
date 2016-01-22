@@ -12,9 +12,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 #
+$here = Split-Path -Parent $MyInvocation.MyCommand.Path
+$moduleHome = Split-Path -Parent $here
 
 $moduleName = "powershell-yaml"
-$modulePath = Resolve-Path "..\powershell-yaml.psm1"
+$modulePath = Join-Path $moduleHome "powershell-yaml.psd1"
 Import-Module $modulePath
 
 

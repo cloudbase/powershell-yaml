@@ -129,10 +129,7 @@ After Pester is up and running, the tests may be ran by simply entering the
 tests directory and running `Invoke-Pester`:
 
 ```
-PS C:\> cd <repo-directory>\Tests
-PS C:\path\to\repo-directory> Invoke-Pester
+PS C:\> git clone https://github.com/cloudbase/powershell-yaml.git $HOME\powershell-yaml
+PS C:\> cd $HOME\powershell-yaml
+PS C:\Users\Guest\powershell-yaml> powershell.exe -NonInteractive -Command {Invoke-Pester}
 ```
-
-NOTE: Be sure to have all the necessary assemblies loaded before running the
-tests.
-The easiest way of doing so is just running the default `Load-Assemblies.ps1`.
