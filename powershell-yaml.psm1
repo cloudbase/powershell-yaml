@@ -203,7 +203,7 @@ function ConvertTo-Yaml {
         $d.Add($data)
     }
     END {
-        if(!$d){
+        if($d -eq $null){
             return
         }
         $norm = Convert-PSObjectToGenericObject $d
