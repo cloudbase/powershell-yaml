@@ -120,7 +120,7 @@ function Convert-ListToGenericList {
     for($i=0; $i -lt $Data.Count; $i++) {
         $Data[$i] = Convert-PSObjectToGenericObject $Data[$i]
     }
-    return $Data
+    return ,$Data
 }
 
 function Convert-PSCustomObjectToDictionary {
@@ -200,11 +200,16 @@ function ConvertTo-Yaml {
         $d = [System.Collections.Generic.List[object]](New-Object "System.Collections.Generic.List[object]")
     }
     PROCESS {
-        $d.Add($data)
+        if($data -ne $null) {
+            $d.Add($data)
+        }
     }
     END {
-        if($d -eq $null){
+        if($d -eq $null -or $d.Count -eq 0){
             return
+        }
+        if($d.Count -eq 1) {
+            $d = $d[0]
         }
         $norm = Convert-PSObjectToGenericObject $d
         if($OutFile) {
