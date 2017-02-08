@@ -145,7 +145,7 @@ function Convert-PSObjectToGenericObject {
     $data = $data -as $data.GetType().FullName
     switch($data.GetType()) {
         ($_.FullName -eq "System.Management.Automation.PSCustomObject") {
-            return Convert-PSCustomObjectToDictionary
+            return Convert-PSCustomObjectToDictionary $data
         }
         default {
             if (([System.Collections.IDictionary].IsAssignableFrom($_))){
