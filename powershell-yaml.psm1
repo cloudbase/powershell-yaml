@@ -76,7 +76,7 @@ function Convert-YamlSequenceToArray {
         foreach($i in $Node.Children){
             $ret.Add((Convert-YamlDocumentToPSObject $i))
         }
-        return $ret
+        return ,$ret
     }
 }
 
