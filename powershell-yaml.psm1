@@ -168,6 +168,9 @@ function ConvertFrom-Yaml {
         [switch]$AllDocuments=$false,
         [switch]$Ordered
     )
+    BEGIN {
+        if ($Ordered -and $Host.Version.Major -lt 3) { throw 'Using $Ordered parameter requires PowerShell v3.0 or higher' }
+    }
     PROCESS {
         if(!$Yaml){
             return
