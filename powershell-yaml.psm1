@@ -194,6 +194,7 @@ function ConvertTo-Yaml {
         [System.Object]$Data,
         [Parameter(Mandatory=$false)]
         [string]$OutFile,
+        [switch]$JsonCompatible=$false,
         [switch]$Force=$false
     )
     BEGIN {
@@ -224,8 +225,14 @@ function ConvertTo-Yaml {
         } else {
             $wrt = New-Object "System.IO.StringWriter"
         }
+
+        $options = 0
+        if ($JsonCompatible) {
+            # No indent options :~(
+            $options = [YamlDotNet.Serialization.SerializationOptions]::JsonCompatible
+        }
         try {
-            $serializer = New-Object "YamlDotNet.Serialization.Serializer" 0
+            $serializer = New-Object "YamlDotNet.Serialization.Serializer" $options
             $serializer.Serialize($wrt, $norm)
         } finally {
             $wrt.Close()
