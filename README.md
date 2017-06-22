@@ -119,6 +119,45 @@ goodbye                        world
 second                         document
 ```
 
+## Converting from YAML to JSON
+
+The awesome YamlDotNet assembly allows us to serialize an object in a JSON compatible way. Unfortunately it does not support indentation. Here is a simple example:
+
+```powershell
+Import-Module powershell-yaml
+
+PS C:\> $yaml = @"
+anArray:
+- 1
+- 2
+- 3
+nested:
+  array:
+  - this
+  - is
+  - an
+  - array
+hello: world
+"@
+
+PS C:\> $obj = ConvertFrom-Yaml $yaml
+PS C:\> $obj
+
+Name                           Value
+----                           -----
+anArray                        {1, 2, 3}
+nested                         {array}
+hello                          world
+
+PS C:\> ConvertTo-Yaml -JsonCompatible $obj
+{"anArray": [1, 2, 3], "nested": {"array": ["this", "is", "an", "array"]}, "hello": "world"}
+
+# Or you could do it in one line.
+PS C:\> ConvertFrom-Yaml $yaml | ConvertTo-Yaml -JsonCompatible
+{"anArray": [1, 2, 3], "nested": {"array": ["this", "is", "an", "array"]}, "hello": "world"}
+
+```
+
 ## Running the tests.
 
 Before running the associated unit tests; please make sure you have
