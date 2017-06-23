@@ -4,6 +4,14 @@ This powershell module is a thin wrapper on top of [YamlDotNet](https://github.c
 
 The ```lib``` folder contains the YamlDotNet assemblies. They are not really required, just a fall-back in case your system does not already have them installed and loaded. Feel free to remove the ```lib``` folder if you prefer to add the required assemblies yourself.
 
+## Installation
+
+This module is available for installation via [Powershell Gallery](http://www.powershellgallery.com/). Simply run the following command:
+
+```powershell
+Install-Module powershell-yaml
+```
+
 ## ConvertTo-Yaml
 
 ```powershell
