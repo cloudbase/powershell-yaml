@@ -38,10 +38,15 @@ function Convert-ValueToProperType {
         if (!($Value -is [string])) {
             return $Value
         }
-        $types = @([int], [long], [double], [boolean], [datetime])
+        $culture = New-Object System.Globalization.CultureInfo("invariant")
+        $types = @([int], [long], [double], [boolean], [decimal])
         foreach($i in $types){
             try {
-                return $i::Parse($Value)
+                if ($i.IsAssignableFrom([boolean])){
+                    return $i::Parse($Value)
+                } else {
+                    return $i::Parse($Value, $culture)
+                }
             } catch {
                 continue
             }
