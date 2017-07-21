@@ -54,12 +54,13 @@ function Convert-YamlMappingToHashtable {
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
-        [YamlDotNet.RepresentationModel.YamlMappingNode]$Node
+        [YamlDotNet.RepresentationModel.YamlMappingNode]$Node,
+        [switch] $Ordered
     )
     PROCESS {
-        $ret = @{}
+        if ($Ordered) { $ret = [ordered]@{} } else { $ret = @{} }
         foreach($i in $Node.Children.Keys) {
-            $ret[$i.Value] = Convert-YamlDocumentToPSObject $Node.Children[$i]
+            $ret[$i.Value] = Convert-YamlDocumentToPSObject $Node.Children[$i] -Ordered:$Ordered
         }
         return $ret
     }
@@ -84,12 +85,13 @@ function Convert-YamlDocumentToPSObject {
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
-        [System.Object]$Node
+        [System.Object]$Node, 
+        [switch]$Ordered
     )
     PROCESS {
         switch($Node.GetType().FullName){
             "YamlDotNet.RepresentationModel.YamlMappingNode"{
-                return Convert-YamlMappingToHashtable $Node
+                return Convert-YamlMappingToHashtable $Node -Ordered:$Ordered
             }
             "YamlDotNet.RepresentationModel.YamlSequenceNode" {
                 return Convert-YamlSequenceToArray $Node
@@ -163,8 +165,10 @@ function ConvertFrom-Yaml {
     Param(
         [Parameter(Mandatory=$false, ValueFromPipeline=$true)]
         [string]$Yaml,
-        [switch]$AllDocuments=$false
+        [switch]$AllDocuments=$false,
+        [switch]$Ordered
     )
+    
     PROCESS {
         if(!$Yaml){
             return
@@ -174,14 +178,14 @@ function ConvertFrom-Yaml {
             return
         }
         if($documents.Count -eq 1){
-            return Convert-YamlDocumentToPSObject $documents[0].RootNode
+            return Convert-YamlDocumentToPSObject $documents[0].RootNode -Ordered:$Ordered
         }
         if(!$AllDocuments) {
-            return Convert-YamlDocumentToPSObject $documents[0].RootNode
+            return Convert-YamlDocumentToPSObject $documents[0].RootNode -Ordered:$Ordered
         }
         $ret = @()
         foreach($i in $documents) {
-            $ret += Convert-YamlDocumentToPSObject $i.RootNode
+            $ret += Convert-YamlDocumentToPSObject $i.RootNode -Ordered:$Ordered
         }
         return $ret
     }
