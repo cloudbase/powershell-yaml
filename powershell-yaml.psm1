@@ -51,6 +51,26 @@ function Convert-ValueToProperType {
                 continue
             }
         }
+
+        # From the YAML spec: http://yaml.org/type/timestamp.html
+        $regex = @'
+[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] # (ymd)
+|[0-9][0-9][0-9][0-9] # (year)
+ -[0-9][0-9]? # (month)
+ -[0-9][0-9]? # (day)
+ ([Tt]|[ \t]+)[0-9][0-9]? # (hour)
+ :[0-9][0-9] # (minute)
+ :[0-9][0-9] # (second)
+ (\.[0-9]*)? # (fraction)
+ (([ \t]*)Z|[-+][0-9][0-9]?(:[0-9][0-9])?)? # (time zone)
+'@
+        if( [Text.RegularExpressions.Regex]::IsMatch($Value, $regex, [Text.RegularExpressions.RegexOptions]::IgnorePatternWhitespace) ) {
+            [DateTime]$datetime = [DateTime]::MinValue
+            if( ([DateTime]::TryParse($Value,[ref]$datetime)) ) {
+                return $datetime
+            }
+        }
+            
         return $Value
     }
 }

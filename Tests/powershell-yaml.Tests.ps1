@@ -173,6 +173,18 @@ total: 4443.52
 note: >
     I can't wait.
     To get that Cool Book.
+
+dates:
+    - 2001-12-15T02:59:43.1Z
+    - 2001-12-14t21:59:43.10-05:00
+    - 2001-12-14 21:59:43.10 -5
+    - 2001-12-15 2:59:43.10
+    - 2002-12-14
+version:
+    - 1.2.3
+noniso8601dates:
+    - 5/4/2017
+    - 1.2.3
 "@
 
             $expected = @{
@@ -186,8 +198,16 @@ note: >
                     }
                 );
                 total = 4443.52;
-                note = ("I can't wait. To get that Cool Book." -f [Environment]::NewLine);
-            }
+                note = ("I can't wait. To get that Cool Book.`n");
+                dates = @(
+                            [DateTime]::Parse('2001-12-15T02:59:43.1Z'),
+                            [DateTime]::Parse('2001-12-14t21:59:43.10-05:00'),
+                            [DateTime]::Parse('2001-12-14 21:59:43.10 -5'),
+                            [DateTime]::Parse('2001-12-15 2:59:43.10'),
+                            [DateTime]::Parse('2002-12-14')
+                        );
+                version = "1.2.3";
+                noniso8601dates = @( '5/4/2017', '1.2.3' );            }
 
             $res = ConvertFrom-Yaml $testYaml
 
@@ -197,18 +217,38 @@ note: >
                 $wishlist.Count | Should Be 2
                 $wishlist[0] | Should Not BeNullOrEmpty
                 $wishlist[0].Count | Should Be 4
-                $wishlist[0][0] | Should Be 'coats'
-                $wishlist[0][1] | Should Be 'hats'
-                $wishlist[0][2] | Should Be 'and'
-                $wishlist[0][3] | Should Be 'scarves'
+                $wishlist[0][0] | Should Be $expected['wishlist'][0][0]
+                $wishlist[0][1] | Should Be $expected['wishlist'][0][1]
+                $wishlist[0][2] | Should Be $expected['wishlist'][0][2]
+                $wishlist[0][3] | Should Be $expected['wishlist'][0][3]
                 $product = $res['wishlist'][1]
                 $product | Should Not BeNullOrEmpty
-                $product['product'] | Should Be 'A Cool Book.'
-                $product['quantity'] | Should Be 1
-                $product['description'] | Should Be 'I love that Cool Book.'
-                $product['price'] | Should Be 55.34
-                $res['total'] | Should Be 4443.52
-                $res['note'] | Should Be ("I can't wait. To get that Cool Book." -f [Environment]::NewLine);
+                $expectedProduct = $expected['wishlist'][1]
+                $product['product'] | Should Be $expectedProduct['product']
+                $product['quantity'] | Should Be $expectedProduct['quantity']
+                $product['description'] | Should Be $expectedProduct['description']
+                $product['price'] | Should Be $expectedProduct['price']
+                $res['total'] | Should Be $expected['total']
+                $res['note'] | Should Be $expected['note']
+
+                $res['dates'] | Should Not BeNullOrEmpty
+                $res['dates'].Count | Should Be $expected['dates'].Count
+                for( $idx = 0; $idx -lt $expected['dates'].Count; ++$idx )
+                {
+                    $res['dates'][$idx] | Should BeOfType ([datetime])
+                    $res['dates'][$idx] | Should Be $expected['dates'][$idx]
+                }
+
+                $res['version'] | Should BeOfType ([string])
+                $res['version'] | Should Be $expected['version']
+
+                $res['noniso8601dates'] | Should Not BeNullOrEmpty
+                $res['noniso8601dates'].Count | Should Be $expected['noniso8601dates'].Count
+                for( $idx = 0; $idx -lt $expected['noniso8601dates'].Count; ++$idx )
+                {
+                    $res['noniso8601dates'][$idx] | Should BeOfType ([string])
+                    $res['noniso8601dates'][$idx] | Should Be $expected['noniso8601dates'][$idx]
+                }
                 
                 Confirm-Equality $expected $res | Should Be $true
             }
