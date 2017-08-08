@@ -38,13 +38,13 @@ InModuleScope $moduleName {
 
         # else; handle hashes and arrays specially:
         if ($expected -is [System.Array]) {
-            if ($got -isnot [System.Array] -or ($expected.Count -ne $got.Count)) {
+            if ( -not (,$got | Get-Member -Name 'Count') -or ($expected.Count -ne $got.Count)) {
                 return $false
             }
 
             # just iterate through the elements of the array comparing each one:
             for ($i = 0; $i -lt $expected.Count; $i = $i + 1) {
-                if ( !(Confirm-Equality $expected.Get($i) $got.Get($i)) ) {
+                if ( !(Confirm-Equality $expected[$i] $got[$i]) ) {
                     return $false
                 }
             }
@@ -186,12 +186,30 @@ note: >
                     }
                 );
                 total = 4443.52;
-                comment = "I can't wait. To get that Cool Book."
+                note = ("I can't wait. To get that Cool Book." -f [Environment]::NewLine);
             }
 
             $res = ConvertFrom-Yaml $testYaml
 
             It "Should decode the YAML string as expected." {
+                $wishlist = $res['wishlist']
+                $wishlist | Should Not BeNullOrEmpty
+                $wishlist.Count | Should Be 2
+                $wishlist[0] | Should Not BeNullOrEmpty
+                $wishlist[0].Count | Should Be 4
+                $wishlist[0][0] | Should Be 'coats'
+                $wishlist[0][1] | Should Be 'hats'
+                $wishlist[0][2] | Should Be 'and'
+                $wishlist[0][3] | Should Be 'scarves'
+                $product = $res['wishlist'][1]
+                $product | Should Not BeNullOrEmpty
+                $product['product'] | Should Be 'A Cool Book.'
+                $product['quantity'] | Should Be 1
+                $product['description'] | Should Be 'I love that Cool Book.'
+                $product['price'] | Should Be 55.34
+                $res['total'] | Should Be 4443.52
+                $res['note'] | Should Be ("I can't wait. To get that Cool Book." -f [Environment]::NewLine);
+                
                 Confirm-Equality $expected $res | Should Be $true
             }
         }
@@ -256,5 +274,4 @@ note: >
         }
 
     }
-
 }

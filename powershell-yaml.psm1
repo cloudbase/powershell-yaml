@@ -38,7 +38,7 @@ function Convert-ValueToProperType {
         if (!($Value -is [string])) {
             return $Value
         }
-        $culture = New-Object System.Globalization.CultureInfo("invariant")
+        $culture = [Globalization.CultureInfo]::InvariantCulture
         $types = @([int], [long], [double], [boolean], [decimal])
         foreach($i in $types){
             try {
