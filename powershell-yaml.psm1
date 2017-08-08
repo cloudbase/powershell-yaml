@@ -38,17 +38,21 @@ function Convert-ValueToProperType {
         if (!($Value -is [string])) {
             return $Value
         }
-        $culture = [Globalization.CultureInfo]::InvariantCulture
+        $culture = 
         $types = @([int], [long], [double], [boolean], [decimal])
         foreach($i in $types){
-            try {
-                if ($i.IsAssignableFrom([boolean])){
-                    return $i::Parse($Value)
-                } else {
-                    return $i::Parse($Value, $culture)
+            $parsedValue = New-Object -TypeName $i.FullName
+            if ($i.IsAssignableFrom([boolean])){
+                $result = $i::TryParse($Value,[ref]$parsedValue) 
+            } else {
+                $result = $i::TryParse($Value, [Globalization.NumberStyles]::Any, [Globalization.CultureInfo]::CurrentCulture, [ref]$parsedValue)
+                if( -not $result )
+                {
+                    $result = $i::TryParse($Value, [Globalization.NumberStyles]::Any, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)
                 }
-            } catch {
-                continue
+            }
+            if( $result ) {
+                return $parsedValue
             }
         }
 

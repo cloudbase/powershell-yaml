@@ -170,6 +170,7 @@ wishlist:
       description : I love that Cool Book.
       price       : 55.34
 total: 4443.52
+int64: $([int64]::MaxValue)
 note: >
     I can't wait.
     To get that Cool Book.
@@ -185,6 +186,14 @@ version:
 noniso8601dates:
     - 5/4/2017
     - 1.2.3
+bools:
+    - yes
+    - no
+    - true
+    - false
+    - on
+    - off
+
 "@
 
             $expected = @{
@@ -198,6 +207,7 @@ noniso8601dates:
                     }
                 );
                 total = 4443.52;
+                int64 = ([int64]::MaxValue);
                 note = ("I can't wait. To get that Cool Book.`n");
                 dates = @(
                             [DateTime]::Parse('2001-12-15T02:59:43.1Z'),
@@ -207,7 +217,9 @@ noniso8601dates:
                             [DateTime]::Parse('2002-12-14')
                         );
                 version = "1.2.3";
-                noniso8601dates = @( '5/4/2017', '1.2.3' );            }
+                noniso8601dates = @( '5/4/2017', '1.2.3' );            
+                bools = @( $true, $false, $true, $false, $true, $false );
+            }
 
             $res = ConvertFrom-Yaml $testYaml
 
