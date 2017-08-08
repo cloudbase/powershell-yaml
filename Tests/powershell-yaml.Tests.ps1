@@ -193,7 +193,6 @@ bools:
     - false
     - on
     - off
-
 "@
 
             $expected = @{
