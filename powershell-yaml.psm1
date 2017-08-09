@@ -45,11 +45,7 @@ function Convert-ValueToProperType {
             if ($i.IsAssignableFrom([boolean])){
                 $result = $i::TryParse($Value,[ref]$parsedValue) 
             } else {
-                $result = $i::TryParse($Value, [Globalization.NumberStyles]::Any, [Globalization.CultureInfo]::CurrentCulture, [ref]$parsedValue)
-                if( -not $result )
-                {
-                    $result = $i::TryParse($Value, [Globalization.NumberStyles]::Any, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)
-                }
+                $result = $i::TryParse($Value, [Globalization.NumberStyles]::Any, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)
             }
             if( $result ) {
                 return $parsedValue
