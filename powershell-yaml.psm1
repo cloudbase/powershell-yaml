@@ -38,7 +38,6 @@ function Convert-ValueToProperType {
         if (!($Value -is [string])) {
             return $Value
         }
-        $culture = 
         $types = @([int], [long], [double], [boolean], [decimal])
         foreach($i in $types){
             $parsedValue = New-Object -TypeName $i.FullName
