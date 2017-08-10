@@ -38,19 +38,38 @@ function Convert-ValueToProperType {
         if (!($Value -is [string])) {
             return $Value
         }
-        $culture = New-Object System.Globalization.CultureInfo("invariant")
         $types = @([int], [long], [double], [boolean], [decimal])
         foreach($i in $types){
-            try {
-                if ($i.IsAssignableFrom([boolean])){
-                    return $i::Parse($Value)
-                } else {
-                    return $i::Parse($Value, $culture)
-                }
-            } catch {
-                continue
+            $parsedValue = New-Object -TypeName $i.FullName
+            if ($i.IsAssignableFrom([boolean])){
+                $result = $i::TryParse($Value,[ref]$parsedValue) 
+            } else {
+                $result = $i::TryParse($Value, [Globalization.NumberStyles]::Any, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)
+            }
+            if( $result ) {
+                return $parsedValue
             }
         }
+
+        # From the YAML spec: http://yaml.org/type/timestamp.html
+        $regex = @'
+[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] # (ymd)
+|[0-9][0-9][0-9][0-9] # (year)
+ -[0-9][0-9]? # (month)
+ -[0-9][0-9]? # (day)
+ ([Tt]|[ \t]+)[0-9][0-9]? # (hour)
+ :[0-9][0-9] # (minute)
+ :[0-9][0-9] # (second)
+ (\.[0-9]*)? # (fraction)
+ (([ \t]*)Z|[-+][0-9][0-9]?(:[0-9][0-9])?)? # (time zone)
+'@
+        if( [Text.RegularExpressions.Regex]::IsMatch($Value, $regex, [Text.RegularExpressions.RegexOptions]::IgnorePatternWhitespace) ) {
+            [DateTime]$datetime = [DateTime]::MinValue
+            if( ([DateTime]::TryParse($Value,[ref]$datetime)) ) {
+                return $datetime
+            }
+        }
+            
         return $Value
     }
 }
