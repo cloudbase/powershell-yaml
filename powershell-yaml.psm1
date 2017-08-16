@@ -138,6 +138,17 @@ function Convert-HashtableToDictionary {
     return $Data
 }
 
+function Convert-OrderedHashtableToDictionary {
+    Param(
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
+        [System.Collections.Specialized.OrderedDictionary] $Data
+    )
+    foreach ($i in $($data.Keys)) {
+        $Data[$i] = Convert-PSObjectToGenericObject $Data[$i]
+    }
+    return $Data
+}
+
 function Convert-ListToGenericList {
     Param(
         [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
@@ -174,7 +185,9 @@ function Convert-PSObjectToGenericObject {
             return Convert-PSCustomObjectToDictionary $data
         }
         default {
-            if (([System.Collections.IDictionary].IsAssignableFrom($_))){
+            if (([System.Collections.Specialized.OrderedDictionary].IsAssignableFrom($_))){
+                return Convert-OrderedHashtableToDictionary $data
+            } elseif (([System.Collections.IDictionary].IsAssignableFrom($_))){
                 return Convert-HashtableToDictionary $data
             } elseif (([System.Collections.IList].IsAssignableFrom($_))) {
                 return Convert-ListToGenericList $data
