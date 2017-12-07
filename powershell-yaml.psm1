@@ -177,24 +177,17 @@ function Convert-PSObjectToGenericObject {
         [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
         [System.Object]$Data
     )
-    # explicitly cast object to its type. Without this, it gets wrapped inside a powershell object
-    # which causes YamlDotNet to fail
-    $data = $data -as $data.GetType().FullName
-    switch($data.GetType()) {
-        ($_.FullName -eq "System.Management.Automation.PSCustomObject") {
-            return Convert-PSCustomObjectToDictionary $data
-        }
-        default {
-            if (([System.Collections.Specialized.OrderedDictionary].IsAssignableFrom($_))){
-                return Convert-OrderedHashtableToDictionary $data
-            } elseif (([System.Collections.IDictionary].IsAssignableFrom($_))){
-                return Convert-HashtableToDictionary $data
-            } elseif (([System.Collections.IList].IsAssignableFrom($_))) {
-                return Convert-ListToGenericList $data
-            }
-            return $data
-        }
+    $dataType = $data.GetType()
+    if ($dataType.FullName -eq "System.Management.Automation.PSCustomObject") {
+        return Convert-PSCustomObjectToDictionary $data
+    } elseif (([System.Collections.Specialized.OrderedDictionary].IsAssignableFrom($dataType))){
+        return Convert-OrderedHashtableToDictionary $data
+    } elseif (([System.Collections.IDictionary].IsAssignableFrom($dataType))){
+        return Convert-HashtableToDictionary $data
+    } elseif (([System.Collections.IList].IsAssignableFrom($dataType))) {
+        return Convert-ListToGenericList $data
     }
+    return $data
 }
 
 function ConvertFrom-Yaml {
