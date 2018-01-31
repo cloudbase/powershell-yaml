@@ -51,4 +51,5 @@ ScriptsToProcess = @("Load-Assemblies.ps1")
 # Functions to export from this module
 FunctionsToExport = "ConvertTo-Yaml","ConvertFrom-Yaml"
 
+AliasesToExport = "cfy","cty"
 }

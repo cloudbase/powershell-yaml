@@ -286,4 +286,7 @@ function ConvertTo-Yaml {
     }
 }
 
+New-Alias -Name cfy -Value ConvertFrom-Yaml
+New-Alias -Name cty -Value ConvertTo-Yaml
+
 Export-ModuleMember -Function * -Alias *
