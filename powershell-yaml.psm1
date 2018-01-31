@@ -13,6 +13,13 @@
 #    under the License.
 #
 
+$here = Split-Path -Parent $MyInvocation.MyCommand.Path
+$assemblies = Join-Path $here "Load-Assemblies.ps1"
+
+if (Test-Path $assemblies) {
+    . $here\Load-Assemblies.ps1
+}
+
 function Get-YamlDocuments {
     [CmdletBinding()]
     Param(
@@ -151,8 +158,8 @@ function Convert-OrderedHashtableToDictionary {
 
 function Convert-ListToGenericList {
     Param(
-        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
-        [array]$Data
+        [Parameter(Mandatory=$false,ValueFromPipeline=$true)]
+        [array]$Data=@()
     )
     for($i=0; $i -lt $Data.Count; $i++) {
         $Data[$i] = Convert-PSObjectToGenericObject $Data[$i]
@@ -235,7 +242,7 @@ function ConvertTo-Yaml {
         $d = [System.Collections.Generic.List[object]](New-Object "System.Collections.Generic.List[object]")
     }
     PROCESS {
-        if($data -ne $null) {
+        if($data -is [System.Object]) {
             $d.Add($data)
         }
     }

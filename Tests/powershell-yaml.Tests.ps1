@@ -282,7 +282,7 @@ bools:
             }
 
             It "Should verify that all the required mocks were called." {
-                Assert-VerifiableMocks
+                Assert-VerifiableMock
             }
         }
 
@@ -298,7 +298,7 @@ bools:
             }
 
             It "Should verify that all the required mocks were called." {
-                Assert-VerifiableMocks
+                Assert-VerifiableMock
             }
         }
 
@@ -311,7 +311,8 @@ bools:
                 $yaml = ConvertTo-Yaml $testObject
                 ConvertTo-Yaml $testObject -OutFile $testPath
 
-                Compare-Object $yaml (Get-Content $testPath) | Should Be $true
+                Compare-Object $yaml (Get-Content -Raw $testPath) | Should Be $null
+
             }
 
             # NOTE: the below assertion relies on the above writing its file.
@@ -321,7 +322,7 @@ bools:
                 $yaml = ConvertTo-Yaml  $newTestObject
                 ConvertTo-Yaml $newTestObject -OutFile $testPath -Force
 
-                Compare-Object $yaml (Get-Content $testPath) | Should Be $true
+                Compare-Object $yaml (Get-Content -Raw $testPath) | Should Be $null
             }
         }
 
