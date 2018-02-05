@@ -94,6 +94,17 @@ InModuleScope $moduleName {
         }
 
         Context "Test array handling under various circumstances." {
+
+            It "Should ConvertTo empty array." {
+                $res = ConvertTo-Yaml @()
+                $res.Trim() | Should -Be "[]"
+            }
+
+            It "Should ConvertFrom empty array." {
+                $res = "[]" | ConvertFrom-Yaml
+                $res | Should -Be @()
+            }
+
             $arr = 1, 2, "yes", @{ key = "value" }, 5, (1, "no", 3)
 
             It "Should represent identity to encode/decode arrays as arguments." {
