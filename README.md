@@ -1,8 +1,8 @@
 # powershell-yaml
 
-This powershell module is a thin wrapper on top of [YamlDotNet](https://github.com/aaubry/YamlDotNet "YamlDotNet") that serializes and un-serializes simple powershell objects to and from YAML. It was tested on powershell versions 4 and 5, supports [Nano Server](https://technet.microsoft.com/en-us/library/mt126167.aspx "Nano") and aparently works with powershell on Linux. I suspect it works on Mac as well, but I have not had a chance to test it.
+This powershell module is a thin wrapper on top of [YamlDotNet](https://github.com/aaubry/YamlDotNet "YamlDotNet") that serializes and un-serializes simple powershell objects to and from YAML. It was tested on powershell versions 4 and 5, supports [Nano Server](https://technet.microsoft.com/en-us/library/mt126167.aspx "Nano") and apparently works with powershell on Linux. I suspect it works on Mac as well, but I have not had a chance to test it.
 
-The ```lib``` folder contains the YamlDotNet assemblies. They are not really required, just a fall-back in case your system does not already have them installed and loaded. Feel free to remove the ```lib``` folder if you prefer to add the required assemblies yourself.
+The `lib` folder contains the YamlDotNet assemblies. They are not really required, just a fall-back in case your system does not already have them installed and loaded. Feel free to remove the `lib` folder if you prefer to add the required assemblies yourself.
 
 ## Installation
 
@@ -163,20 +163,24 @@ PS C:\> ConvertTo-Yaml -JsonCompatible $obj
 # Or you could do it in one line.
 PS C:\> ConvertFrom-Yaml $yaml | ConvertTo-Yaml -JsonCompatible
 {"anArray": [1, 2, 3], "nested": {"array": ["this", "is", "an", "array"]}, "hello": "world"}
-
 ```
 
-## Running the tests.
+## Development
 
-Before running the associated unit tests; please make sure you have
-[Pester](https://github.com/pester/pester) installed, as it is the testing
-framework of choice.
+**Clone the repository:**
 
-After Pester is up and running, the tests may be ran by simply entering the
-tests directory and running `Invoke-Pester`:
-
+```powershell
+git clone https://github.com/cloudbase/powershell-yaml
+cd powershell-yaml
 ```
-PS C:\> git clone https://github.com/cloudbase/powershell-yaml.git $HOME\powershell-yaml
-PS C:\> cd $HOME\powershell-yaml
-PS C:\Users\Guest\powershell-yaml> powershell.exe -NonInteractive -Command {Invoke-Pester}
+
+**Format and test the code:**
+
+```powershell
+pwsh Make.ps1
 ```
+
+The `Make.ps1` script uses the following tools:
+
+* [**Pester**](https://github.com/pester/pester) `v4.1.1` to test the code
+* [**PowerShell-Beautifier**](https://github.com/DTW-DanWard/PowerShell-Beautifier) `v1.2.3` to format the code

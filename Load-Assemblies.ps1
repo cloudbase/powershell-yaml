@@ -16,21 +16,21 @@
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 function Initialize-Assemblies {
-    $libDir = Join-Path $here "lib"
-    $assemblies = @{
-        "portable" = Join-Path $libDir "net45\YamlDotNet.dll";
-        "released" = Join-Path $libDir "net35\YamlDotNet.dll";
-    }
+	$libDir = Join-Path $here "lib"
+	$assemblies = @{
+		"portable" = Join-Path $libDir "net45\YamlDotNet.dll";
+		"released" = Join-Path $libDir "net35\YamlDotNet.dll";
+	}
 
-    try {
-        [YamlDotNet.Serialization.Serializer] | Out-Null
-    } catch [System.Management.Automation.RuntimeException] {
-        try {
-            return [Microsoft.PowerShell.CoreCLR.AssemblyExtensions]::LoadFrom($assemblies["portable"])
-        } catch [System.Management.Automation.RuntimeException] {
-            return [Reflection.Assembly]::LoadFrom($assemblies["released"])
-        }
-    }
+	try {
+		[YamlDotNet.Serialization.Serializer] | Out-Null
+	} catch [System.Management.Automation.RuntimeException]{
+		try {
+			return [Microsoft.PowerShell.CoreCLR.AssemblyExtensions]::LoadFrom($assemblies["portable"])
+		} catch [System.Management.Automation.RuntimeException]{
+			return [Reflection.Assembly]::LoadFrom($assemblies["released"])
+		}
+	}
 }
 
 Initialize-Assemblies | Out-Null

@@ -21,35 +21,37 @@
 
 @{
 
-# Script module or binary module file associated with this manifest.
-RootModule = 'powershell-yaml.psm1'
+	# Script module or binary module file associated with this manifest.
+	RootModule = 'powershell-yaml.psm1'
 
-# Version number of this module.
-ModuleVersion = '0.3.1'
+	# Version number of this module.
+	ModuleVersion = '0.3.1'
 
-# ID used to uniquely identify this module
-GUID = '6a75a662-7f53-425a-9777-ee61284407da'
+	# ID used to uniquely identify this module
+	GUID = '6a75a662-7f53-425a-9777-ee61284407da'
 
-# Author of this module
-Author = 'Gabriel Adrian Samfira','Alessandro Pilotti'
+	# Author of this module
+	Author = 'Gabriel Adrian Samfira','Alessandro Pilotti'
 
-# Company or vendor of this module
-CompanyName = 'Cloudbase Solutions SRL'
+	# Company or vendor of this module
+	CompanyName = 'Cloudbase Solutions SRL'
 
-# Copyright statement for this module
-Copyright = '(c) 2016 Cloudbase Solutions SRL. All rights reserved.'
+	# Copyright statement for this module
+	Copyright = '(c) 2016 Cloudbase Solutions SRL. All rights reserved.'
 
-# Description of the functionality provided by this module
-Description = 'Powershell module for serializing and deserializing YAML'
+	# Description of the functionality provided by this module
+	description = 'Powershell module for serializing and deserializing YAML'
 
-# Minimum version of the Windows PowerShell engine required by this module
-PowerShellVersion = '3.0'
+	# Minimum version of the Windows PowerShell engine required by this module
+	PowerShellVersion = '3.0'
 
-# Script files (.ps1) that are run in the caller's environment prior to importing this module.
-ScriptsToProcess = @("Load-Assemblies.ps1")
+	# Script files (.ps1) that are run in the caller's environment prior to importing this module.
+	ScriptsToProcess = @(
+		"Load-Assemblies.ps1"
+	)
 
-# Functions to export from this module
-FunctionsToExport = "ConvertTo-Yaml","ConvertFrom-Yaml"
+	# Functions to export from this module
+	FunctionsToExport = "ConvertTo-Yaml","ConvertFrom-Yaml"
 
-AliasesToExport = "cfy","cty"
+	AliasesToExport = "cfy","cty"
 }
