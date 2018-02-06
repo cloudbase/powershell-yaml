@@ -96,13 +96,19 @@ InModuleScope $moduleName {
         Context "Test array handling under various circumstances." {
 
             It "Should ConvertTo empty array." {
-                $res = ConvertTo-Yaml @()
-                $res.Trim() | Should -Be "[]"
+                $str = ConvertTo-Yaml @()
+                $str.Trim() | Should -Be "[]"
+            }
+
+            It "Should ConvertTo empty array with -OutFile." {
+                $tempFile = [System.IO.Path]::GetTempFileName()
+                ConvertTo-Yaml @() -OutFile $tempFile -Force
+                (Get-Content $tempFile).Trim() | Should -Be "[]"
             }
 
             It "Should ConvertFrom empty array." {
-                $res = "[]" | ConvertFrom-Yaml
-                $res | Should -Be @()
+                $arr = "[]" | ConvertFrom-Yaml
+                Confirm-Equality ([object[]] $arr) @() | Should -Be $true
             }
 
             $arr = 1, 2, "yes", @{ key = "value" }, 5, (1, "no", 3)
