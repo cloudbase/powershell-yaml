@@ -40,7 +40,7 @@
 	Copyright = '(c) 2016 Cloudbase Solutions SRL. All rights reserved.'
 
 	# Description of the functionality provided by this module
-	description = 'Powershell module for serializing and deserializing YAML'
+	Description = 'Powershell module for serializing and deserializing YAML'
 
 	# Minimum version of the Windows PowerShell engine required by this module
 	PowerShellVersion = '3.0'

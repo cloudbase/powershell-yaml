@@ -44,7 +44,7 @@ function Ensure-Loaded {
 }
 
 function Format-Files {
-	$files = Get-ChildItem -Path $PWD -Include *.ps1,*.psm1,*.psd1 -Recurse
+	$files = Get-ChildItem -Path $PWD -Include *.ps1,*.psm1 -Recurse
 	Write-Verbose "Formatting files:"
 	$files | ForEach-Object { Write-Verbose "- $_" }
 	$files | Edit-DTWBeautifyScript -IndentType Tabs -NewLine LF
