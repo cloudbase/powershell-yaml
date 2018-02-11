@@ -181,9 +181,12 @@ function Convert-PSCustomObjectToDictionary {
 
 function Convert-PSObjectToGenericObject {
     Param(
-        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
+        [Parameter(Mandatory=$false,ValueFromPipeline=$true)]
         [System.Object]$Data
     )
+    if ($data -isnot [System.Object]) {
+        return $data
+    }
     $dataType = $data.GetType()
     if ($dataType.FullName -eq "System.Management.Automation.PSCustomObject") {
         return Convert-PSCustomObjectToDictionary $data
