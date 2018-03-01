@@ -25,7 +25,7 @@
 RootModule = 'powershell-yaml.psm1'
 
 # Version number of this module.
-ModuleVersion = '0.3.1'
+ModuleVersion = '0.3.2'
 
 # ID used to uniquely identify this module
 GUID = '6a75a662-7f53-425a-9777-ee61284407da'
