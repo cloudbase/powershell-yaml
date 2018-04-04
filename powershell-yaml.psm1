@@ -161,10 +161,11 @@ function Convert-ListToGenericList {
         [Parameter(Mandatory=$false,ValueFromPipeline=$true)]
         [array]$Data=@()
     )
+    $ret = [System.Collections.Generic.List[object]](New-Object "System.Collections.Generic.List[object]")
     for($i=0; $i -lt $Data.Count; $i++) {
-        $Data[$i] = Convert-PSObjectToGenericObject $Data[$i]
+        $ret.Add((Convert-PSObjectToGenericObject $Data[$i]))
     }
-    return ,$Data
+    return ,$ret
 }
 
 function Convert-PSCustomObjectToDictionary {
