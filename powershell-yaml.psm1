@@ -39,25 +39,28 @@ function Convert-ValueToProperType {
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
-        [System.Object]$Value
+        [System.Object]$Node
     )
     PROCESS {
-        if (!($Value -is [string])) {
-            return $Value
+        if (!($Node.Value -is [string])) {
+            return $Node
         }
-        $types = @([int], [long], [double], [boolean], [decimal])
-        foreach($i in $types){
-            $parsedValue = New-Object -TypeName $i.FullName
-            if ($i.IsAssignableFrom([boolean])){
-                $result = $i::TryParse($Value,[ref]$parsedValue) 
-            } else {
-                $result = $i::TryParse($Value, [Globalization.NumberStyles]::Any, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)
-            }
-            if( $result ) {
-                return $parsedValue
+        
+        if ($Node.Style -eq 'Plain')
+        {
+            $types = @([int], [long], [double], [boolean], [decimal])
+            foreach($i in $types){
+                $parsedValue = New-Object -TypeName $i.FullName
+                if ($i.IsAssignableFrom([boolean])){
+                    $result = $i::TryParse($Node,[ref]$parsedValue) 
+                } else {
+                    $result = $i::TryParse($Node, [Globalization.NumberStyles]::Any, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)
+                }
+                if( $result ) {
+                    return $parsedValue
+                }
             }
         }
-
         # From the YAML spec: http://yaml.org/type/timestamp.html
         $regex = @'
 [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] # (ymd)
@@ -70,14 +73,14 @@ function Convert-ValueToProperType {
  (\.[0-9]*)? # (fraction)
  (([ \t]*)Z|[-+][0-9][0-9]?(:[0-9][0-9])?)? # (time zone)
 '@
-        if( [Text.RegularExpressions.Regex]::IsMatch($Value, $regex, [Text.RegularExpressions.RegexOptions]::IgnorePatternWhitespace) ) {
+        if([Text.RegularExpressions.Regex]::IsMatch($Node.Value, $regex, [Text.RegularExpressions.RegexOptions]::IgnorePatternWhitespace) ) {
             [DateTime]$datetime = [DateTime]::MinValue
-            if( ([DateTime]::TryParse($Value,[ref]$datetime)) ) {
+            if( ([DateTime]::TryParse($Node.Value,[ref]$datetime)) ) {
                 return $datetime
             }
         }
             
-        return $Value
+        return $Node.Value
     }
 }
 
@@ -128,7 +131,7 @@ function Convert-YamlDocumentToPSObject {
                 return Convert-YamlSequenceToArray $Node
             }
             "YamlDotNet.RepresentationModel.YamlScalarNode" {
-                return (Convert-ValueToProperType $Node.Value)
+                return (Convert-ValueToProperType $Node)
             }
         }
     }
