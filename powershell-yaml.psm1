@@ -131,7 +131,7 @@ function Convert-YamlDocumentToPSObject {
                 return Convert-YamlSequenceToArray $Node
             }
             "YamlDotNet.RepresentationModel.YamlScalarNode" {
-                return (Convert-ValueToProperType $Node.Value)
+                return (Convert-ValueToProperType $Node)
             }
         }
     }
