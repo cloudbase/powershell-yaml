@@ -210,12 +210,12 @@ bools:
                 int64 = ([int64]::MaxValue);
                 note = ("I can't wait. To get that Cool Book.`n");
                 dates = @(
-                            [DateTime]::Parse('2001-12-15T02:59:43.1Z'),
-                            [DateTime]::Parse('2001-12-14t21:59:43.10-05:00'),
-                            [DateTime]::Parse('2001-12-14 21:59:43.10 -5'),
-                            [DateTime]::Parse('2001-12-15 2:59:43.10'),
-                            [DateTime]::Parse('2002-12-14')
-                        );
+                    [DateTime]::Parse('2001-12-15T02:59:43.1Z'),
+                    [DateTime]::Parse('2001-12-14t21:59:43.10-05:00'),
+                    [DateTime]::Parse('2001-12-14 21:59:43.10 -5'),
+                    [DateTime]::Parse('2001-12-15 2:59:43.10'),
+                    [DateTime]::Parse('2002-12-14')
+                );
                 version = "1.2.3";
                 noniso8601dates = @( '5/4/2017', '1.2.3' );            
                 bools = @( $true, $false, $true, $false, $true, $false );
@@ -326,5 +326,67 @@ bools:
             }
         }
 
+    }
+    
+    Describe "Generic Casting Behaviour" {
+        Context "Node Style is 'Plain'" {
+            $value = @'
+ T1: 001
+'@
+            It 'Should be an int' {
+                $result = ConvertFrom-Yaml -Yaml $value
+                $result.T1 | Should BeOfType System.Int32
+            }
+            
+            It 'Should be value of 1' {
+                $result = ConvertFrom-Yaml -Yaml $value
+                $result.T1 | Should Be 1
+            }
+            
+            It 'Should not be value of 001' {
+                $result = ConvertFrom-Yaml -Yaml $value
+                $result.T1 | Should Not Be '001'
+            }
+        }
+        
+        Context "Node Style is 'SingleQuoted'" {
+            $value = @'
+ T1: '001'
+'@
+            It 'Should be a string' {
+                $result = ConvertFrom-Yaml -Yaml $value
+                $result.T1 | Should BeOfType System.String
+            }
+            
+            It 'Should be value of 001' {
+                $result = ConvertFrom-Yaml -Yaml $value
+                $result.T1 | Should Be '001'
+            }
+            
+            It 'Should not be value of 1' {
+                $result = ConvertFrom-Yaml -Yaml $value
+                $result.T1 | Should Not Be '1'
+            }
+        }
+        
+        Context "Node Style is 'DoubleQuoted'" {
+            $value = @'
+ T1: "001"
+'@
+            It 'Should be a string' {
+                $result = ConvertFrom-Yaml -Yaml $value
+                $result.T1 | Should BeOfType System.String
+            }
+            
+            It 'Should be value of 001' {
+                $result = ConvertFrom-Yaml -Yaml $value
+                $result.T1 | Should Be '001'
+            }
+            
+            It 'Should not be value of 1' {
+                $result = ConvertFrom-Yaml -Yaml $value
+                $result.T1 | Should Not Be '1'
+            }
+        }
     }
 }
