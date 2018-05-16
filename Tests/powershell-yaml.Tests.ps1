@@ -68,9 +68,9 @@ InModuleScope $moduleName {
                 if ( !(Confirm-Equality $expected.Item($_) $got.Item($_)) ) {
                     return $false
                 }
-            }
+            } | out-null
 
-            return $true
+            return $eq
         }
 
         return $false
