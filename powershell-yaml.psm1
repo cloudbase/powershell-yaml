@@ -235,15 +235,22 @@ function ConvertFrom-Yaml {
     }
 }
 
+
 function ConvertTo-Yaml {
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'NoOptions')]
     Param(
-        [Parameter(Mandatory=$false,ValueFromPipeline=$true)]
+        [Parameter(ValueFromPipeline = $true)]
         [System.Object]$Data,
-        [Parameter(Mandatory=$false)]
+
         [string]$OutFile,
-        [switch]$JsonCompatible=$false,
-        [switch]$Force=$false
+
+        [Parameter(ParameterSetName = 'Options')]
+        [YamlDotNet.Serialization.SerializationOptions]$Options = [YamlDotNet.Serialization.SerializationOptions]::Roundtrip,
+
+        [Parameter(ParameterSetName = 'NoOptions')]
+        [switch]$JsonCompatible,
+
+        [switch]$Force
     )
     BEGIN {
         $d = [System.Collections.Generic.List[object]](New-Object "System.Collections.Generic.List[object]")
@@ -254,19 +261,19 @@ function ConvertTo-Yaml {
         }
     }
     END {
-        if($d -eq $null -or $d.Count -eq 0){
+        if ($d -eq $null -or $d.Count -eq 0) {
             return
         }
-        if($d.Count -eq 1) {
+        if ($d.Count -eq 1) {
             $d = $d[0]
         }
         $norm = Convert-PSObjectToGenericObject $d
-        if($OutFile) {
+        if ($OutFile) {
             $parent = Split-Path $OutFile
-            if(!(Test-Path $parent)) {
+            if (!(Test-Path $parent)) {
                 Throw "Parent folder for specified path does not exist"
             }
-            if((Test-Path $OutFile) -and !$Force){
+            if ((Test-Path $OutFile) -and !$Force) {
                 Throw "Target file already exists. Use -Force to overwrite."
             }
             $wrt = New-Object "System.IO.StreamWriter" $OutFile
@@ -274,20 +281,28 @@ function ConvertTo-Yaml {
             $wrt = New-Object "System.IO.StringWriter"
         }
 
-        $options = 0
-        if ($JsonCompatible) {
-            # No indent options :~(
-            $options = [YamlDotNet.Serialization.SerializationOptions]::JsonCompatible
+        if ($PSCmdlet.ParameterSetName -eq 'NoOptions') {
+            $Options = 0
+
+            if ($JsonCompatible) {
+                # No indent options :~(
+                $options = [YamlDotNet.Serialization.SerializationOptions]::JsonCompatible
+            }
         }
+
         try {
-            $serializer = New-Object "YamlDotNet.Serialization.Serializer" $options
+            $serializer = New-Object "YamlDotNet.Serialization.Serializer" $Options
             $serializer.Serialize($wrt, $norm)
-        } finally {
+        }
+        catch{
+            $_
+        }
+        finally {
             $wrt.Close()
         }
-        if($OutFile){
+        if ($OutFile) {
             return
-        }else {
+        } else {
             return $wrt.ToString()
         }
     }
