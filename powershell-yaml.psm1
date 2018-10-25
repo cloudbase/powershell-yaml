@@ -239,7 +239,7 @@ function ConvertFrom-Yaml {
 function ConvertTo-Yaml {
     [CmdletBinding(DefaultParameterSetName = 'NoOptions')]
     Param(
-        [Parameter(ValueFromPipeline = $true)]
+        [Parameter(ValueFromPipeline = $true, Position=0)]
         [System.Object]$Data,
 
         [string]$OutFile,
