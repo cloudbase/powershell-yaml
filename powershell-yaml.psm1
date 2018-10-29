@@ -24,13 +24,21 @@ function Get-YamlDocuments {
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
-        [string]$Yaml
+        [string]$Yaml,
+        [switch]$UseMergingParser=$false
     )
     PROCESS {
         $stringReader = new-object System.IO.StringReader($Yaml)
+        $parser = New-Object "YamlDotNet.Core.Parser" $stringReader
+        if($UseMergingParser) {
+            $parser = New-Object "YamlDotNet.Core.MergingParser" $parser
+        }
+
         $yamlStream = New-Object "YamlDotNet.RepresentationModel.YamlStream"
-        $yamlStream.Load([System.IO.TextReader] $stringReader)
+        $yamlStream.Load([YamlDotNet.Core.IParser] $parser)
+
         $stringReader.Close()
+
         return $yamlStream
     }
 }
@@ -207,17 +215,18 @@ function Convert-PSObjectToGenericObject {
 function ConvertFrom-Yaml {
     [CmdletBinding()]
     Param(
-        [Parameter(Mandatory=$false, ValueFromPipeline=$true)]
+        [Parameter(Mandatory=$false, ValueFromPipeline=$true, Position=0)]
         [string]$Yaml,
         [switch]$AllDocuments=$false,
-        [switch]$Ordered
+        [switch]$Ordered,
+        [switch]$UseMergingParser=$false
     )
     
     PROCESS {
         if(!$Yaml){
             return
         }
-        $documents = Get-YamlDocuments -Yaml $Yaml
+        $documents = Get-YamlDocuments -Yaml $Yaml -UseMergingParser:$UseMergingParser
         if (!$documents.Count) {
             return
         }

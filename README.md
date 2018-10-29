@@ -127,6 +127,47 @@ goodbye                        world
 second                         document
 ```
 
+## Merge keys support
+
+```powershell
+
+$mergingYaml = @"
+---
+default: &default
+  value1: 1
+  value2: 2
+
+hoge:
+  <<: *default
+  value3: 3
+"@
+
+ConvertFrom-Yaml -Yaml $mergingYaml -UseMergingParser
+
+Name                           Value
+----                           -----
+default                        {value1, value2}
+hoge                           {value2, value3, value1}
+
+```
+
+Important node: For the time being, overwriting keys will throw a duplicate key exception.
+
+```powershell
+$mergingYamlWithDuplicates = @"
+---
+default: &default
+  value1: 1
+  value2: 2
+
+hoge:
+  <<: *default
+  # this is a duplicate
+  value1: 44
+  value3: 3
+"@
+```
+
 ## Converting from YAML to JSON
 
 The awesome YamlDotNet assembly allows us to serialize an object in a JSON compatible way. Unfortunately it does not support indentation. Here is a simple example:

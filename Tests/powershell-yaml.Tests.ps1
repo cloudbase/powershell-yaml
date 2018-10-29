@@ -19,7 +19,6 @@ $moduleName = "powershell-yaml"
 $modulePath = Join-Path $moduleHome "powershell-yaml.psd1"
 Import-Module $modulePath
 
-
 InModuleScope $moduleName {
 
     # Confirm-Equality is a helper function which acts like a DeepEquals
@@ -116,6 +115,53 @@ InModuleScope $moduleName {
 
                 Confirm-Equality $arged $piped | Should Be $true
             }
+        }
+
+        Context "Test merging parser" {
+            $mergingYaml = @"
+---
+default: &default
+  value1: 1
+  value2: 2
+
+hoge:
+  <<: *default
+  value3: 3
+"@
+
+            $mergingYamlOverwriteCase = @"
+---
+default: &default
+  value1: 1
+  value2: 2
+
+hoge:
+  <<: *default
+  value1: 33
+  value3: 3
+"@
+
+            It "Should expand merging key with appropriate referenced keys" {
+                $result = ConvertFrom-Yaml -Yaml $mergingYaml -UseMergingParser
+                [array]$values = $result.hoge.keys
+                [array]::sort($values)
+                Confirm-Equality $values @("value1", "value2", "value3") | Should Be $true
+            }
+
+            It "Should retain literal key name in the absence or -UseMergingParser" {
+                $result = ConvertFrom-Yaml -Yaml $mergingYaml
+                [array]$values = $result.hoge.keys
+                [array]::sort($values)
+                Confirm-Equality $values @("<<", "value3") | Should Be $true
+            }
+
+            It "Shoud Throw duplicate key exception when merging keys" {
+                # This case does not seem to be treated by YamlDotNet and currently throws
+                # a duplicate key exception
+                { ConvertFrom-Yaml -Yaml $mergingYamlOverwriteCase -UseMergingParser } | Should -Throw -PassThru | Select-Object -ExpandProperty Exception | 
+Should -BeLike "*Duplicate key*"
+            }
+
         }
 
         Context "Test hash handling under various circumstances." {
