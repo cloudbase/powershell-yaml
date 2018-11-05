@@ -151,7 +151,7 @@ hoge                           {value2, value3, value1}
 
 ```
 
-Important node: For the time being, overwriting keys will throw a duplicate key exception.
+Important note: For the time being, overwriting keys will throw a duplicate key exception.
 
 ```powershell
 $mergingYamlWithDuplicates = @"
