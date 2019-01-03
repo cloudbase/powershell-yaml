@@ -244,6 +244,53 @@ function ConvertFrom-Yaml {
     }
 }
 
+$stringQuotingEmitterSource = @"
+using System;
+using System.Text.RegularExpressions;
+using YamlDotNet;
+using YamlDotNet.Core;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.EventEmitters;
+public class StringQuotingEmitter: ChainedEventEmitter {
+    // Patterns from https://yaml.org/spec/1.2/spec.html#id2804356
+    private static Regex quotedRegex = new Regex(@`"^(\~|null|true|false|-?(0|[1-9][0-9]*)(\.[0-9]*)?([eE][-+]?[0-9]+)?)?$`", RegexOptions.Compiled);
+    public StringQuotingEmitter(IEventEmitter next): base(next) {}
+
+    public override void Emit(ScalarEventInfo eventInfo, IEmitter emitter) {
+        var typeCode = eventInfo.Source.Value != null
+        ? Type.GetTypeCode(eventInfo.Source.Type)
+        : TypeCode.Empty;
+
+        switch (typeCode) {
+            case TypeCode.Char:
+                if (Char.IsDigit((char)eventInfo.Source.Value)) {
+                    eventInfo.Style = ScalarStyle.DoubleQuoted;
+                }
+                break;
+            case TypeCode.String:
+                var val = eventInfo.Source.Value.ToString();
+                if (quotedRegex.IsMatch(val))
+                {
+                    eventInfo.Style = ScalarStyle.DoubleQuoted;
+                }
+                break;
+        }
+
+        base.Emit(eventInfo, emitter);
+    }
+
+    public static SerializerBuilder Add(SerializerBuilder builder) {
+        return builder.WithEventEmitter(next => new StringQuotingEmitter(next));
+    }
+}
+"@
+
+$referenceList = @([YamlDotNet.Serialization.Serializer].Assembly.Location,[Text.RegularExpressions.Regex].Assembly.Location)
+if ($PSVersionTable.PSEdition -eq "Core") {
+    Add-Type -TypeDefinition $stringQuotingEmitterSource -ReferencedAssemblies $referenceList -Language CSharp -CompilerOptions "-nowarn:1701"
+} else {
+    Add-Type -TypeDefinition $stringQuotingEmitterSource -ReferencedAssemblies $referenceList -Language CSharp
+}
 
 function ConvertTo-Yaml {
     [CmdletBinding(DefaultParameterSetName = 'NoOptions')]
@@ -290,17 +337,37 @@ function ConvertTo-Yaml {
             $wrt = New-Object "System.IO.StringWriter"
         }
 
+        $builder = New-Object "YamlDotNet.Serialization.SerializerBuilder"
+    
         if ($PSCmdlet.ParameterSetName -eq 'NoOptions') {
-            $Options = 0
-
             if ($JsonCompatible) {
                 # No indent options :~(
-                $options = [YamlDotNet.Serialization.SerializationOptions]::JsonCompatible
+                $builder = $builder.JsonCompatible()
+            }
+        } else {
+            # SerializationOptions is no longer used by YamlDotNet, translate it
+
+            if ($options.HasFlag([YamlDotNet.Serialization.SerializationOptions]::Roundtrip)) {
+                $builder = $builder.EnsureRoundtrip()
+            }
+            if ($options.HasFlag([YamlDotNet.Serialization.SerializationOptions]::DisableAliases)) {
+                $builder = $builder.DisableAliases()
+            }
+            if ($options.HasFlag([YamlDotNet.Serialization.SerializationOptions]::EmitDefaults)) {
+                $builder = $builder.EmitDefaults()
+            }
+            if ($options.HasFlag([YamlDotNet.Serialization.SerializationOptions]::JsonCompatible)) {
+                $builder = $builder.JsonCompatible()
+            }
+            if ($options.HasFlag([YamlDotNet.Serialization.SerializationOptions]::DefaultToStaticType)) {
+                $builder = $builder.WithTypeResolver((New-Object "YamlDotNet.Serialization.TypeResolvers.StaticTypeResolver"))
             }
         }
 
+        $builder = [StringQuotingEmitter]::Add($builder)
+
         try {
-            $serializer = New-Object "YamlDotNet.Serialization.Serializer" $Options
+            $serializer = $builder.Build()
             $serializer.Serialize($wrt, $norm)
         }
         catch{

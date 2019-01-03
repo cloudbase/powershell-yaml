@@ -435,4 +435,56 @@ bools:
             }
         }
     }
+
+    Describe 'Strings containing other primitives' {
+        Context 'String contains an int' {
+            $value = @{key="1"}
+            It 'Should serialise with double quotes' {
+                $result = ConvertTo-Yaml $value
+                $result | Should Be "key: ""1""$([Environment]::NewLine)"
+            }
+        }
+        Context 'String contains a float' {
+            $value = @{key="0.25"}
+            It 'Should serialise with double quotes' {
+                $result = ConvertTo-Yaml $value
+                $result | Should Be "key: ""0.25""$([Environment]::NewLine)"
+            }
+        }
+        Context 'String is "true"' {
+            $value = @{key="true"}
+            It 'Should serialise with double quotes' {
+                $result = ConvertTo-Yaml $value
+                $result | Should Be "key: ""true""$([Environment]::NewLine)"
+            }
+        }
+        Context 'String is "false"' {
+            $value = @{key="false"}
+            It 'Should serialise with double quotes' {
+                $result = ConvertTo-Yaml $value
+                $result | Should Be "key: ""false""$([Environment]::NewLine)"
+            }
+        }
+        Context 'String is "null"' {
+            $value = @{key="null"}
+            It 'Should serialise with double quotes' {
+                $result = ConvertTo-Yaml $value
+                $result | Should Be "key: ""null""$([Environment]::NewLine)"
+            }
+        }
+        Context 'String is "~" (alternative syntax for null)' {
+            $value = @{key="~"}
+            It 'Should serialise with double quotes' {
+                $result = ConvertTo-Yaml $value
+                $result | Should Be "key: ""~""$([Environment]::NewLine)"
+            }
+        }
+        Context 'String is empty' {
+            $value = @{key=""}
+            It 'Should serialise with double quotes' {
+                $result = ConvertTo-Yaml $value
+                $result | Should Be "key: """"$([Environment]::NewLine)"
+            }
+        }
+    }
 }

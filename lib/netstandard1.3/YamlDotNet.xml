@@ -2877,7 +2877,7 @@
             <summary>
             When implemented, recursively enumerates all the nodes from the document, starting on the current node.
             If <see cref="P:YamlDotNet.Core.RecursionLevel.Maximum"/> is reached, a <see cref="T:YamlDotNet.Core.MaximumRecursionLevelReachedException"/> is thrown
-            instead of continuing and crashing with a <see cref="T:System.StackOverflowException"/>.
+            instead of continuing and crashing with a <see cref="!:StackOverflowException"/>.
             </summary>
         </member>
         <member name="P:YamlDotNet.RepresentationModel.YamlNode.NodeType">
@@ -4579,13 +4579,6 @@
             <summary>
             Performs type conversions using every standard provided by the .NET library.
             </summary>
-        </member>
-        <member name="M:YamlDotNet.Serialization.Utilities.TypeConverter.RegisterTypeConverter``2">
-            <summary>
-            Registers a <see cref="T:System.ComponentModel.TypeConverter"/> dynamically.
-            </summary>
-            <typeparam name="TConvertible">The type to which the coverter should be associated.</typeparam>
-            <typeparam name="TConverter">The type of the converter.</typeparam>
         </member>
         <member name="M:YamlDotNet.Serialization.Utilities.TypeConverter.ChangeType``1(System.Object)">
             <summary>
