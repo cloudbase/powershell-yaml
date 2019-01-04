@@ -92,6 +92,31 @@ InModuleScope $moduleName {
             }
         }
 
+        Context "Nulls and strings" {
+            $nullAndString = @{"iAmNull"= $null; "iAmEmptyString"=""}
+            $yaml = "iAmNull: 
+iAmEmptyString: """"
+".Replace("`n", [Environment]::NewLine)
+
+            It "should preserve nulls and empty strings from PowerShell" {
+                $toYaml = ConvertTo-Yaml $nullAndString
+                $backFromYaml = ConvertFrom-Yaml $toYaml
+
+                ($null -eq $backFromYaml.iAmNull) | Should Be $true
+                $backFromYaml.iAmEmptyString | Should Be ""
+                $toYaml | Should Be $yaml
+            }
+
+            It "should preserve nulls and empty strings from Yaml" {
+                $fromYaml = ConvertFrom-Yaml $yaml
+                $backToYaml = ConvertTo-Yaml $fromYaml
+
+                $backToYaml | Should Be $yaml
+                ($null -eq $fromYaml.iAmNull) | Should Be $true
+                $fromYaml.iAmEmptyString | Should Be ""
+            }
+        }
+
         Context "Test array handling under various circumstances." {
             $arr = 1, 2, "yes", @{ key = "value" }, 5, (1, "no", 3)
 
