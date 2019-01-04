@@ -94,9 +94,11 @@ InModuleScope $moduleName {
 
         Context "Nulls and strings" {
             $nullAndString = [ordered]@{"iAmNull"= $null; "iAmEmptyString"=""}
-            $yaml = "iAmNull: 
-iAmEmptyString: """"
-".Replace("`r`n", "`n")
+            $yaml = @"
+iAmNull: 
+iAmEmptyString: ""
+
+"@
 
             It "should preserve nulls and empty strings from PowerShell" {
                 $toYaml = ConvertTo-Yaml $nullAndString
@@ -104,14 +106,14 @@ iAmEmptyString: """"
 
                 ($null -eq $backFromYaml.iAmNull) | Should Be $true
                 $backFromYaml.iAmEmptyString | Should Be ""
-                $toYaml.Replace("`r`n", "`n") | Should Be $yaml
+                $toYaml | Should Be $yaml
             }
 
             It "should preserve nulls and empty strings from Yaml" {
                 $fromYaml = ConvertFrom-Yaml -Ordered $yaml
                 $backToYaml = ConvertTo-Yaml $fromYaml
 
-                $backToYaml.Replace("`r`n", "`n") | Should Be $yaml
+                $backToYaml | Should Be $yaml
                 ($null -eq $fromYaml.iAmNull) | Should Be $true
                 $fromYaml.iAmEmptyString | Should Be ""
             }
