@@ -87,7 +87,11 @@ function Convert-ValueToProperType {
                 return $datetime
             }
         }
-            
+
+        if ($Node.Style -eq 'Plain' -and $Node.Value -in '','~','null','Null','NULL') {
+            return $null
+        }
+
         return $Node.Value
     }
 }
@@ -272,6 +276,8 @@ public class StringQuotingEmitter: ChainedEventEmitter {
                 if (quotedRegex.IsMatch(val))
                 {
                     eventInfo.Style = ScalarStyle.DoubleQuoted;
+                } else if (val.IndexOf('\n') > -1) {
+                    eventInfo.Style = ScalarStyle.Literal;
                 }
                 break;
         }
@@ -290,6 +296,32 @@ if ($PSVersionTable.PSEdition -eq "Core") {
     Add-Type -TypeDefinition $stringQuotingEmitterSource -ReferencedAssemblies $referenceList -Language CSharp -CompilerOptions "-nowarn:1701"
 } else {
     Add-Type -TypeDefinition $stringQuotingEmitterSource -ReferencedAssemblies $referenceList -Language CSharp
+}
+
+function Get-Serializer {
+    Param(
+        [Parameter(Mandatory=$true)][YamlDotNet.Serialization.SerializationOptions]$Options
+    )
+    
+    $builder = New-Object "YamlDotNet.Serialization.SerializerBuilder"
+    
+    if ($Options.HasFlag([YamlDotNet.Serialization.SerializationOptions]::Roundtrip)) {
+        $builder = $builder.EnsureRoundtrip()
+    }
+    if ($Options.HasFlag([YamlDotNet.Serialization.SerializationOptions]::DisableAliases)) {
+        $builder = $builder.DisableAliases()
+    }
+    if ($Options.HasFlag([YamlDotNet.Serialization.SerializationOptions]::EmitDefaults)) {
+        $builder = $builder.EmitDefaults()
+    }
+    if ($Options.HasFlag([YamlDotNet.Serialization.SerializationOptions]::JsonCompatible)) {
+        $builder = $builder.JsonCompatible()
+    }
+    if ($Options.HasFlag([YamlDotNet.Serialization.SerializationOptions]::DefaultToStaticType)) {
+        $builder = $builder.WithTypeResolver((New-Object "YamlDotNet.Serialization.TypeResolvers.StaticTypeResolver"))
+    }
+    $builder = [StringQuotingEmitter]::Add($builder)
+    return $builder.Build()
 }
 
 function ConvertTo-Yaml {
@@ -336,38 +368,17 @@ function ConvertTo-Yaml {
         } else {
             $wrt = New-Object "System.IO.StringWriter"
         }
-
-        $builder = New-Object "YamlDotNet.Serialization.SerializerBuilder"
     
         if ($PSCmdlet.ParameterSetName -eq 'NoOptions') {
+            $Options = 0
             if ($JsonCompatible) {
                 # No indent options :~(
-                $builder = $builder.JsonCompatible()
-            }
-        } else {
-            # SerializationOptions is no longer used by YamlDotNet, translate it
-
-            if ($options.HasFlag([YamlDotNet.Serialization.SerializationOptions]::Roundtrip)) {
-                $builder = $builder.EnsureRoundtrip()
-            }
-            if ($options.HasFlag([YamlDotNet.Serialization.SerializationOptions]::DisableAliases)) {
-                $builder = $builder.DisableAliases()
-            }
-            if ($options.HasFlag([YamlDotNet.Serialization.SerializationOptions]::EmitDefaults)) {
-                $builder = $builder.EmitDefaults()
-            }
-            if ($options.HasFlag([YamlDotNet.Serialization.SerializationOptions]::JsonCompatible)) {
-                $builder = $builder.JsonCompatible()
-            }
-            if ($options.HasFlag([YamlDotNet.Serialization.SerializationOptions]::DefaultToStaticType)) {
-                $builder = $builder.WithTypeResolver((New-Object "YamlDotNet.Serialization.TypeResolvers.StaticTypeResolver"))
+                $Options = [YamlDotNet.Serialization.SerializationOptions]::JsonCompatible
             }
         }
 
-        $builder = [StringQuotingEmitter]::Add($builder)
-
         try {
-            $serializer = $builder.Build()
+            $serializer = Get-Serializer $Options
             $serializer.Serialize($wrt, $norm)
         }
         catch{
