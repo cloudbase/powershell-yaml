@@ -92,6 +92,33 @@ InModuleScope $moduleName {
             }
         }
 
+        Context "Nulls and strings" {
+            $nullAndString = [ordered]@{"iAmNull"= $null; "iAmEmptyString"=""}
+            $yaml = @"
+iAmNull: 
+iAmEmptyString: ""
+
+"@
+
+            It "should preserve nulls and empty strings from PowerShell" {
+                $toYaml = ConvertTo-Yaml $nullAndString
+                $backFromYaml = ConvertFrom-Yaml $toYaml
+
+                ($null -eq $backFromYaml.iAmNull) | Should Be $true
+                $backFromYaml.iAmEmptyString | Should Be ""
+                $toYaml | Should Be $yaml
+            }
+
+            It "should preserve nulls and empty strings from Yaml" {
+                $fromYaml = ConvertFrom-Yaml -Ordered $yaml
+                $backToYaml = ConvertTo-Yaml $fromYaml
+
+                $backToYaml | Should Be $yaml
+                ($null -eq $fromYaml.iAmNull) | Should Be $true
+                $fromYaml.iAmEmptyString | Should Be ""
+            }
+        }
+
         Context "Test array handling under various circumstances." {
             $arr = 1, 2, "yes", @{ key = "value" }, 5, (1, "no", 3)
 
@@ -432,6 +459,58 @@ bools:
             It 'Should not be value of 1' {
                 $result = ConvertFrom-Yaml -Yaml $value
                 $result.T1 | Should Not Be '1'
+            }
+        }
+    }
+
+    Describe 'Strings containing other primitives' {
+        Context 'String contains an int' {
+            $value = @{key="1"}
+            It 'Should serialise with double quotes' {
+                $result = ConvertTo-Yaml $value
+                $result | Should Be "key: ""1""$([Environment]::NewLine)"
+            }
+        }
+        Context 'String contains a float' {
+            $value = @{key="0.25"}
+            It 'Should serialise with double quotes' {
+                $result = ConvertTo-Yaml $value
+                $result | Should Be "key: ""0.25""$([Environment]::NewLine)"
+            }
+        }
+        Context 'String is "true"' {
+            $value = @{key="true"}
+            It 'Should serialise with double quotes' {
+                $result = ConvertTo-Yaml $value
+                $result | Should Be "key: ""true""$([Environment]::NewLine)"
+            }
+        }
+        Context 'String is "false"' {
+            $value = @{key="false"}
+            It 'Should serialise with double quotes' {
+                $result = ConvertTo-Yaml $value
+                $result | Should Be "key: ""false""$([Environment]::NewLine)"
+            }
+        }
+        Context 'String is "null"' {
+            $value = @{key="null"}
+            It 'Should serialise with double quotes' {
+                $result = ConvertTo-Yaml $value
+                $result | Should Be "key: ""null""$([Environment]::NewLine)"
+            }
+        }
+        Context 'String is "~" (alternative syntax for null)' {
+            $value = @{key="~"}
+            It 'Should serialise with double quotes' {
+                $result = ConvertTo-Yaml $value
+                $result | Should Be "key: ""~""$([Environment]::NewLine)"
+            }
+        }
+        Context 'String is empty' {
+            $value = @{key=""}
+            It 'Should serialise with double quotes' {
+                $result = ConvertTo-Yaml $value
+                $result | Should Be "key: """"$([Environment]::NewLine)"
             }
         }
     }

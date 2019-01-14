@@ -18,17 +18,20 @@ $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 function Initialize-Assemblies {
     $libDir = Join-Path $here "lib"
     $assemblies = @{
-        "portable" = Join-Path $libDir "net45\YamlDotNet.dll";
-        "released" = Join-Path $libDir "net35\YamlDotNet.dll";
+        "core" = Join-Path $libDir "netstandard1.3\YamlDotNet.dll";
+        "net45" = Join-Path $libDir "net45\YamlDotNet.dll";
+        "net35" = Join-Path $libDir "net35\YamlDotNet.dll";
     }
 
     try {
         [YamlDotNet.Serialization.Serializer] | Out-Null
     } catch [System.Management.Automation.RuntimeException] {
-        try {
-            return [Microsoft.PowerShell.CoreCLR.AssemblyExtensions]::LoadFrom($assemblies["portable"])
-        } catch [System.Management.Automation.RuntimeException] {
-            return [Reflection.Assembly]::LoadFrom($assemblies["released"])
+        if ($PSVersionTable.PSEdition -eq "Core") {
+            return [Reflection.Assembly]::LoadFrom($assemblies["core"])
+        } elseif ($PSVersionTable.PSVersion.Major -ge 4) {
+            return [Reflection.Assembly]::LoadFrom($assemblies["net45"])
+        } else {
+            return [Reflection.Assembly]::LoadFrom($assemblies["net35"])
         }
     }
 }
