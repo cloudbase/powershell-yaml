@@ -116,12 +116,13 @@ function Convert-YamlSequenceToArray {
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
-        [YamlDotNet.RepresentationModel.YamlSequenceNode]$Node
+        [YamlDotNet.RepresentationModel.YamlSequenceNode]$Node,
+        [switch]$Ordered
     )
     PROCESS {
         $ret = [System.Collections.Generic.List[object]](New-Object "System.Collections.Generic.List[object]")
         foreach($i in $Node.Children){
-            $ret.Add((Convert-YamlDocumentToPSObject $i))
+            $ret.Add((Convert-YamlDocumentToPSObject $i -Ordered:$Ordered))
         }
         return ,$ret
     }
@@ -140,7 +141,7 @@ function Convert-YamlDocumentToPSObject {
                 return Convert-YamlMappingToHashtable $Node -Ordered:$Ordered
             }
             "YamlDotNet.RepresentationModel.YamlSequenceNode" {
-                return Convert-YamlSequenceToArray $Node
+                return Convert-YamlSequenceToArray $Node -Ordered:$Ordered
             }
             "YamlDotNet.RepresentationModel.YamlScalarNode" {
                 return (Convert-ValueToProperType $Node)
