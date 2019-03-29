@@ -17,7 +17,7 @@ $moduleHome = Split-Path -Parent $here
 
 $moduleName = "powershell-yaml"
 $modulePath = Join-Path $moduleHome "powershell-yaml.psd1"
-Import-Module $modulePath
+Import-Module $modulePath -force
 
 InModuleScope $moduleName {
 
@@ -82,10 +82,9 @@ InModuleScope $moduleName {
 
             foreach ($item in $items) {
 
-                It "Should represent identity to encode and decode." {
+                It "Should represent identity to encode and decode - $item" {
                     $yaml = ConvertTo-Yaml $item
                     $i = ConvertFrom-Yaml $yaml
-
                     $item -eq $i | Should Be $true
                 }
 
@@ -511,6 +510,25 @@ bools:
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
                 $result | Should Be "key: """"$([Environment]::NewLine)"
+            }
+        }
+    }
+
+    Describe "deserializeYaml" {
+        $SCRIPT:yamlInput = Get-Content -raw "$PSScriptRoot\Mocks\YamlInYMinutes.yaml"
+        Describe "DeserializeYaml" {
+            It "Should Deserialize YamlInYMinutes File" {
+                ConvertFrom-Yaml -UseDeserializer $yamlInput | Should -BeOfType [hashtable]
+            }
+
+            It "Should Merge Parser Merges Correctly" {
+                $result = ConvertFrom-Yaml -UseDeserializer -UseMergingParser $yamlInput
+                $result.foo.name | Should -Be "Everyone has same name"
+            }
+
+            It "Should Merge Parser Overrides Existing Value" {
+                $result = ConvertFrom-Yaml -UseDeserializer -UseMergingParser $yamlInput
+                $result.bar.age | Should -Be "20"
             }
         }
     }

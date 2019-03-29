@@ -218,19 +218,32 @@ function Convert-PSObjectToGenericObject {
 }
 
 function ConvertFrom-Yaml {
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName="default")]
     Param(
-        [Parameter(Mandatory=$false, ValueFromPipeline=$true, Position=0)]
-        [string]$Yaml,
-        [switch]$AllDocuments=$false,
+        [Parameter(
+            ValueFromPipeline, 
+            Position=0
+        )][string]$Yaml,
+        [Parameter(ParameterSetName="default")]
+        [switch]$AllDocuments,
         [switch]$Ordered,
-        [switch]$UseMergingParser=$false
+        [switch]$UseMergingParser,
+        [Parameter(ParameterSetName="deserializer")]
+        [switch]$UseDeserializer,
+        [Parameter(ParameterSetName="deserializer")]
+        [switch]$Raw
     )
     
     PROCESS {
         if(!$Yaml){
             return
         }
+
+        if ($UseDeserializer) {
+            $deserializedYaml = DeserializeYaml -Yaml $Yaml -UseMergingParser:$UseMergingParser -Raw:$Raw
+            return $deserializedYaml
+        }
+
         $documents = Get-YamlDocuments -Yaml $Yaml -UseMergingParser:$UseMergingParser
         if (!$documents.Count) {
             return
@@ -247,6 +260,53 @@ function ConvertFrom-Yaml {
         }
         return $ret
     }
+}
+
+function DeserializeYaml {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)][String]$Yaml,
+        [Switch]$UseMergingParser,
+        [Switch]$Raw
+    )
+
+    if(!$Yaml){
+        return
+    }
+
+    $stringReader = [IO.StringReader]$Yaml
+    $parser = [YamlDotNet.Core.Parser]::New($stringReader)
+    if ($UseMergingParser) {
+        $parser = [YamlDotNet.Core.MergingParser]::New($parser)
+    }
+    $deserializer = ([YamlDotNet.Serialization.DeserializerBuilder]::New()).build()
+    $deserializedYaml = $deserializer.Deserialize($parser)
+
+    if ($Raw) {
+        return $deserializedYaml
+    } else {
+        $deserializedYaml = PowershellifyDeserializedYaml $deserializedYaml
+        return $deserializedYaml
+    }
+}
+
+function PowershellifyDeserializedYaml {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory,ValueFromPipeline)]
+        $InputObject
+    )
+
+    if ($inputObject -is [Collections.iDictionary]) {
+        $inputObject = [hashtable]$inputObject
+        
+        ([string[]]$inputObject.keys).foreach{
+            if ($null -ne $inputObject[$PSItem]) {
+                $inputObject[$PSItem] = PowershellifyDeserializedYaml $inputObject[$PSItem]
+            }
+        }
+    }
+    $inputObject
 }
 
 $stringQuotingEmitterSource = @"
