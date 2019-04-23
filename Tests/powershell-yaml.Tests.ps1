@@ -216,7 +216,10 @@ noniso8601dates:
 bools:
     - true
     - false
-
+    - TRUE
+    - FALSE
+    - True
+    - False
 "@
 
             $expected = @{
@@ -241,7 +244,7 @@ bools:
                 );
                 version = "1.2.3";
                 noniso8601dates = @( '5/4/2017', '1.2.3' );            
-                bools = @( $true, $false );
+                bools = @( $true, $false, $true, $false, $true, $false );
             }
 
             $res = ConvertFrom-Yaml $testYaml
