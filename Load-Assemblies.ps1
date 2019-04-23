@@ -15,7 +15,7 @@
 
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-function Initialize-Assemblies {
+function Load-Assembly {
     $libDir = Join-Path $here "lib"
     $assemblies = @{
         "core" = Join-Path $libDir "netstandard1.3\YamlDotNet.dll";
@@ -23,15 +23,33 @@ function Initialize-Assemblies {
         "net35" = Join-Path $libDir "net35\YamlDotNet.dll";
     }
 
-    try {
-        [YamlDotNet.Serialization.Serializer] | Out-Null
-    } catch [System.Management.Automation.RuntimeException] {
-        if ($PSVersionTable.PSEdition -eq "Core") {
-            return [Reflection.Assembly]::LoadFrom($assemblies["core"])
-        } elseif ($PSVersionTable.PSVersion.Major -ge 4) {
-            return [Reflection.Assembly]::LoadFrom($assemblies["net45"])
-        } else {
-            return [Reflection.Assembly]::LoadFrom($assemblies["net35"])
+    if ($PSVersionTable.PSEdition -eq "Core") {
+        return [Reflection.Assembly]::LoadFrom($assemblies["core"])
+    } elseif ($PSVersionTable.PSVersion.Major -ge 4) {
+        return [Reflection.Assembly]::LoadFrom($assemblies["net45"])
+    } else {
+        return [Reflection.Assembly]::LoadFrom($assemblies["net35"])
+    }
+}
+
+
+function Initialize-Assemblies {
+    $requiredTypes = @(
+        "Parser", "MergingParser", "YamlStream",
+        "YamlMappingNode", "YamlSequenceNode",
+        "YamlScalarNode", "ChainedEventEmitter",
+        "Serializer", "Deserializer", "SerializerBuilder",
+        "StaticTypeResolver"
+    )
+
+    $yaml = [System.AppDomain]::CurrentDomain.GetAssemblies() | ? Location -Match "YamlDotNet.dll"
+    if (!$yaml) {
+        return Load-Assembly
+    }
+
+    foreach ($i in $requiredTypes){
+        if ($i -notin $yaml.DefinedTypes.Name) {
+            Throw "YamlDotNet is loaded but missing required types ($i). Older version installed on system?"
         }
     }
 }
