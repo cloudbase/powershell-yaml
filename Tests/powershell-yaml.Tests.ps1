@@ -260,12 +260,8 @@ noniso8601dates:
     - 5/4/2017
     - 1.2.3
 bools:
-    - yes
-    - no
     - true
     - false
-    - on
-    - off
 
 "@
 
@@ -291,7 +287,7 @@ bools:
                 );
                 version = "1.2.3";
                 noniso8601dates = @( '5/4/2017', '1.2.3' );            
-                bools = @( $true, $false, $true, $false, $true, $false );
+                bools = @( $true, $false );
             }
 
             $res = ConvertFrom-Yaml $testYaml
