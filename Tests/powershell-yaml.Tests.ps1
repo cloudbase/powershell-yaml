@@ -12,6 +12,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 #
+
+# pinning this module to an exact version, 
+# because the options api will be merged with Assert-Equivalent
+# before release of 1.0.0
+Import-Module Assert -RequiredVersion 0.9.5
+
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $moduleHome = Split-Path -Parent $here
 
@@ -20,102 +26,50 @@ $modulePath = Join-Path $moduleHome "powershell-yaml.psd1"
 Import-Module $modulePath
 
 InModuleScope $moduleName {
-
-    # Confirm-Equality is a helper function which acts like a DeepEquals
-    # with special attention payed to the specific types the yaml decoder
-    # can handle.
-    function Confirm-Equality {
-        Param(
-            [Parameter(Mandatory=$true)]$expected,
-            [Parameter(Mandatory=$true)]$got
-        )
-
-        # check for easy way out; this should work for all simple value types:
-        if ($expected -eq $got) {
-            return $true
-        }
-
-        # else; handle hashes and arrays specially:
-        if ($expected -is [System.Array]) {
-            if ( -not (,$got | Get-Member -Name 'Count') -or ($expected.Count -ne $got.Count)) {
-                return $false
-            }
-
-            # just iterate through the elements of the array comparing each one:
-            for ($i = 0; $i -lt $expected.Count; $i = $i + 1) {
-                if ( !(Confirm-Equality $expected[$i] $got[$i]) ) {
-                    return $false
-                }
-            }
-
-            return $true
-        }
-
-        if ($expected -is [Hashtable]) {
-            if ($got -isnot [Hashtable] -or ($expected.Count -ne $got.Count)) {
-                return $false
-            }
-
-            # iterate through all the keys:
-            $eq = $true
-            $expected.Keys | % {
-                if ( !$got.ContainsKey($_) ) {
-                    $eq = $false
-                    return
-                }
-
-                if ( !(Confirm-Equality $expected.Item($_) $got.Item($_)) ) {
-                    return $false
-                }
-            } | out-null
-
-            return $eq
-        }
-
-        return $false
-    }
+    $compareStrictly = Get-EquivalencyOption -Comparator Equality
 
     Describe "Test encode-decode symmetry." {
 
         Context "Simple-Items" {
-            $items = 1, "yes", 56, $null
+            It "Should represent identity to encode and decode." -TestCases @(
+                @{ Expected = 1 } 
+                @{ Expected = "yes" } 
+                @{ Expected = 56 } 
+                @{ Expected = $null } 
+            ) {
+                param ($Expected)
+                $actual = ConvertFrom-Yaml (ConvertTo-Yaml $Expected)
 
-            foreach ($item in $items) {
-
-                It "Should represent identity to encode and decode." {
-                    $yaml = ConvertTo-Yaml $item
-                    $i = ConvertFrom-Yaml $yaml
-
-                    $item -eq $i | Should Be $true
-                }
-
+                Assert-Equivalent -Options $compareStrictly -Expected $Expected -Actual $actual 
             }
         }
 
         Context "Nulls and strings" {
-            $nullAndString = [ordered]@{"iAmNull"= $null; "iAmEmptyString"=""}
-            $yaml = @"
+            BeforeAll {
+                $nullAndString = [ordered]@{"iAmNull"= $null; "iAmEmptyString"=""}
+                $yaml = @"
 iAmNull: 
 iAmEmptyString: ""
 
 "@
+            }
 
             It "should preserve nulls and empty strings from PowerShell" {
                 $toYaml = ConvertTo-Yaml $nullAndString
                 $backFromYaml = ConvertFrom-Yaml $toYaml
 
-                ($null -eq $backFromYaml.iAmNull) | Should Be $true
-                $backFromYaml.iAmEmptyString | Should Be ""
-                $toYaml | Should Be $yaml
+                ($null -eq $backFromYaml.iAmNull) | Should -Be $true
+                $backFromYaml.iAmEmptyString | Should -Be ""
+                $toYaml | Should -Be $yaml
             }
 
             It "should preserve nulls and empty strings from Yaml" {
                 $fromYaml = ConvertFrom-Yaml -Ordered $yaml
                 $backToYaml = ConvertTo-Yaml $fromYaml
 
-                $backToYaml | Should Be $yaml
-                ($null -eq $fromYaml.iAmNull) | Should Be $true
-                $fromYaml.iAmEmptyString | Should Be ""
+                $backToYaml | Should -Be $yaml
+                ($null -eq $fromYaml.iAmNull) | Should -Be $true
+                $fromYaml.iAmEmptyString | Should -Be ""
             }
         }
 
@@ -126,21 +80,21 @@ iAmEmptyString: ""
                 $yaml = ConvertTo-Yaml $arr
                 $a = ConvertFrom-Yaml $yaml
 
-                Confirm-Equality $arr $a | Should Be $true
+                Assert-Equivalent -Options $compareStrictly -Actual $a -Expected $arr
             }
 
             It "Should represent identity to encode/decode arrays by piping them in." {
                 $yaml = $arr | ConvertTo-Yaml
                 $a = ConvertFrom-Yaml $yaml
-
-                Confirm-Equality $arr $a | Should Be $true
+                
+                Assert-Equivalent -Options $compareStrictly -Actual $a -Expected $arr
             }
 
             It "Should be irrelevant whether we convert an array by piping it, or referencing them as an argument." {
                 $arged = ConvertTo-Yaml $arr
                 $piped = $arr | ConvertTo-Yaml
 
-                Confirm-Equality $arged $piped | Should Be $true
+                Assert-Equivalent -Options $compareStrictly -Actual $piped -Expected $arged
             }
         }
 
@@ -172,14 +126,14 @@ hoge:
                 $result = ConvertFrom-Yaml -Yaml $mergingYaml -UseMergingParser
                 [array]$values = $result.hoge.keys
                 [array]::sort($values)
-                Confirm-Equality $values @("value1", "value2", "value3") | Should Be $true
+                Assert-Equivalent -Options $compareStrictly -Actual $values -Expected @("value1", "value2", "value3")
             }
 
             It "Should retain literal key name in the absence or -UseMergingParser" {
                 $result = ConvertFrom-Yaml -Yaml $mergingYaml
                 [array]$values = $result.hoge.keys
                 [array]::sort($values)
-                Confirm-Equality $values @("<<", "value3") | Should Be $true
+                Assert-Equivalent -Options $compareStrictly -Actual $values -Expected @("<<", "value3")
             }
 
             It "Shoud Throw duplicate key exception when merging keys" {
@@ -211,21 +165,21 @@ Should -BeLike "*Duplicate key*"
                 $yaml = ConvertTo-Yaml $hash
                 $h = ConvertFrom-Yaml $yaml
 
-                Confirm-Equality $hash $h | Should Be $true
+                Assert-Equivalent -Options $compareStrictly -Actual $h -Expected $hash
             }
 
             It "Should be symmetrical to endocode and then decode a hash by piping it." {
                 $yaml = $hash | ConvertTo-Yaml
                 $h = ConvertFrom-Yaml $yaml
 
-                Confirm-Equality $hash $h | Should Be $true
+                Assert-Equivalent -Options $compareStrictly -Actual $h -Expected $hash
             }
 
             It "Shouldn't matter whether we reference or pipe our hashes in to the YAML functions." {
                 $arged = ConvertTo-Yaml $hash
                 $piped = $hash | ConvertTo-Yaml
 
-                Confirm-Equality $arged $piped | Should Be $true
+                Assert-Equivalent -Options $compareStrictly -Actual $piped -Expected $arged
             }
         }
 
@@ -294,44 +248,44 @@ bools:
 
             It "Should decode the YAML string as expected." {
                 $wishlist = $res['wishlist']
-                $wishlist | Should Not BeNullOrEmpty
-                $wishlist.Count | Should Be 2
-                $wishlist[0] | Should Not BeNullOrEmpty
-                $wishlist[0].Count | Should Be 4
-                $wishlist[0][0] | Should Be $expected['wishlist'][0][0]
-                $wishlist[0][1] | Should Be $expected['wishlist'][0][1]
-                $wishlist[0][2] | Should Be $expected['wishlist'][0][2]
-                $wishlist[0][3] | Should Be $expected['wishlist'][0][3]
+                $wishlist | Should -Not -BeNullOrEmpty
+                $wishlist.Count | Should -Be 2
+                $wishlist[0] | Should -Not -BeNullOrEmpty
+                $wishlist[0].Count | Should -Be 4
+                $wishlist[0][0] | Should -Be $expected['wishlist'][0][0]
+                $wishlist[0][1] | Should -Be $expected['wishlist'][0][1]
+                $wishlist[0][2] | Should -Be $expected['wishlist'][0][2]
+                $wishlist[0][3] | Should -Be $expected['wishlist'][0][3]
                 $product = $res['wishlist'][1]
-                $product | Should Not BeNullOrEmpty
+                $product | Should -Not -BeNullOrEmpty
                 $expectedProduct = $expected['wishlist'][1]
-                $product['product'] | Should Be $expectedProduct['product']
-                $product['quantity'] | Should Be $expectedProduct['quantity']
-                $product['description'] | Should Be $expectedProduct['description']
-                $product['price'] | Should Be $expectedProduct['price']
-                $res['total'] | Should Be $expected['total']
-                $res['note'] | Should Be $expected['note']
+                $product['product'] | Should -Be $expectedProduct['product']
+                $product['quantity'] | Should -Be $expectedProduct['quantity']
+                $product['description'] | Should -Be $expectedProduct['description']
+                $product['price'] | Should -Be $expectedProduct['price']
+                $res['total'] | Should -Be $expected['total']
+                $res['note'] | Should -Be $expected['note']
 
-                $res['dates'] | Should Not BeNullOrEmpty
-                $res['dates'].Count | Should Be $expected['dates'].Count
+                $res['dates'] | Should -Not -BeNullOrEmpty
+                $res['dates'].Count | Should -Be $expected['dates'].Count
                 for( $idx = 0; $idx -lt $expected['dates'].Count; ++$idx )
                 {
-                    $res['dates'][$idx] | Should BeOfType ([datetime])
-                    $res['dates'][$idx] | Should Be $expected['dates'][$idx]
+                    $res['dates'][$idx] | Should -BeOfType ([datetime])
+                    $res['dates'][$idx] | Should -Be $expected['dates'][$idx]
                 }
 
-                $res['version'] | Should BeOfType ([string])
-                $res['version'] | Should Be $expected['version']
+                $res['version'] | Should -BeOfType ([string])
+                $res['version'] | Should -Be $expected['version']
 
-                $res['noniso8601dates'] | Should Not BeNullOrEmpty
-                $res['noniso8601dates'].Count | Should Be $expected['noniso8601dates'].Count
+                $res['noniso8601dates'] | Should -Not -BeNullOrEmpty
+                $res['noniso8601dates'].Count | Should -Be $expected['noniso8601dates'].Count
                 for( $idx = 0; $idx -lt $expected['noniso8601dates'].Count; ++$idx )
                 {
-                    $res['noniso8601dates'][$idx] | Should BeOfType ([string])
-                    $res['noniso8601dates'][$idx] | Should Be $expected['noniso8601dates'][$idx]
+                    $res['noniso8601dates'][$idx] | Should -BeOfType ([string])
+                    $res['noniso8601dates'][$idx] | Should -Be $expected['noniso8601dates'][$idx]
                 }
                 
-                Confirm-Equality $expected $res | Should Be $true
+                Assert-Equivalent -Options $compareStrictly -Actual $res -Expected $expected
             }
         }
 
@@ -380,7 +334,7 @@ bools:
                 $yaml = ConvertTo-Yaml $testObject
                 ConvertTo-Yaml $testObject -OutFile $testPath
 
-                Compare-Object $yaml (Get-Content -Raw $testPath) | Should Be $null
+                Compare-Object $yaml (Get-Content -Raw $testPath) | Should -Be $null
 
             }
 
@@ -391,7 +345,7 @@ bools:
                 $yaml = ConvertTo-Yaml  $newTestObject
                 ConvertTo-Yaml $newTestObject -OutFile $testPath -Force
 
-                Compare-Object $yaml (Get-Content -Raw $testPath) | Should Be $null
+                Compare-Object $yaml (Get-Content -Raw $testPath) | Should -Be $null
             }
         }
 
@@ -404,17 +358,17 @@ bools:
 '@
             It 'Should be an int' {
                 $result = ConvertFrom-Yaml -Yaml $value
-                $result.T1 | Should BeOfType System.Int32
+                $result.T1 | Should -BeOfType System.Int32
             }
             
             It 'Should be value of 1' {
                 $result = ConvertFrom-Yaml -Yaml $value
-                $result.T1 | Should Be 1
+                $result.T1 | Should -Be 1
             }
             
             It 'Should not be value of 001' {
                 $result = ConvertFrom-Yaml -Yaml $value
-                $result.T1 | Should Not Be '001'
+                $result.T1 | Should -Not -Be '001'
             }
         }
         
@@ -424,17 +378,17 @@ bools:
 '@
             It 'Should be a string' {
                 $result = ConvertFrom-Yaml -Yaml $value
-                $result.T1 | Should BeOfType System.String
+                $result.T1 | Should -BeOfType System.String
             }
             
             It 'Should be value of 001' {
                 $result = ConvertFrom-Yaml -Yaml $value
-                $result.T1 | Should Be '001'
+                $result.T1 | Should -Be '001'
             }
             
             It 'Should not be value of 1' {
                 $result = ConvertFrom-Yaml -Yaml $value
-                $result.T1 | Should Not Be '1'
+                $result.T1 | Should -Not -Be '1'
             }
         }
         
@@ -444,17 +398,17 @@ bools:
 '@
             It 'Should be a string' {
                 $result = ConvertFrom-Yaml -Yaml $value
-                $result.T1 | Should BeOfType System.String
+                $result.T1 | Should -BeOfType System.String
             }
             
             It 'Should be value of 001' {
                 $result = ConvertFrom-Yaml -Yaml $value
-                $result.T1 | Should Be '001'
+                $result.T1 | Should -Be '001'
             }
             
             It 'Should not be value of 1' {
                 $result = ConvertFrom-Yaml -Yaml $value
-                $result.T1 | Should Not Be '1'
+                $result.T1 | Should -Not -Be '1'
             }
         }
     }
@@ -464,49 +418,49 @@ bools:
             $value = @{key="1"}
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
-                $result | Should Be "key: ""1""$([Environment]::NewLine)"
+                $result | Should -Be "key: ""1""$([Environment]::NewLine)"
             }
         }
         Context 'String contains a float' {
             $value = @{key="0.25"}
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
-                $result | Should Be "key: ""0.25""$([Environment]::NewLine)"
+                $result | Should -Be "key: ""0.25""$([Environment]::NewLine)"
             }
         }
         Context 'String is "true"' {
             $value = @{key="true"}
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
-                $result | Should Be "key: ""true""$([Environment]::NewLine)"
+                $result | Should -Be "key: ""true""$([Environment]::NewLine)"
             }
         }
         Context 'String is "false"' {
             $value = @{key="false"}
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
-                $result | Should Be "key: ""false""$([Environment]::NewLine)"
+                $result | Should -Be "key: ""false""$([Environment]::NewLine)"
             }
         }
         Context 'String is "null"' {
             $value = @{key="null"}
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
-                $result | Should Be "key: ""null""$([Environment]::NewLine)"
+                $result | Should -Be "key: ""null""$([Environment]::NewLine)"
             }
         }
         Context 'String is "~" (alternative syntax for null)' {
             $value = @{key="~"}
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
-                $result | Should Be "key: ""~""$([Environment]::NewLine)"
+                $result | Should -Be "key: ""~""$([Environment]::NewLine)"
             }
         }
         Context 'String is empty' {
             $value = @{key=""}
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
-                $result | Should Be "key: """"$([Environment]::NewLine)"
+                $result | Should -Be "key: """"$([Environment]::NewLine)"
             }
         }
     }
