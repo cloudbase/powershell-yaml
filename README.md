@@ -217,6 +217,8 @@ After Pester is up and running, the tests may be ran by simply entering the
 tests directory and running `Invoke-Pester`:
 
 ```
+PS C:\> Install-Module Pester
+PS C:\> Install-Module Assert
 PS C:\> git clone https://github.com/cloudbase/powershell-yaml.git $HOME\powershell-yaml
 PS C:\> cd $HOME\powershell-yaml
 PS C:\Users\Guest\powershell-yaml> powershell.exe -NonInteractive -Command {Invoke-Pester}
