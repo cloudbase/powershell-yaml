@@ -226,12 +226,21 @@ function ConvertFrom-Yaml {
         [switch]$Ordered,
         [switch]$UseMergingParser=$false
     )
-    
+
+    BEGIN {
+        $d = ""
+    }
     PROCESS {
-        if(!$Yaml){
+        if($Yaml -is [string]) {
+            $d += $Yaml + "`n"
+        }
+    }
+
+    END {
+        if($d -eq ""){
             return
         }
-        $documents = Get-YamlDocuments -Yaml $Yaml -UseMergingParser:$UseMergingParser
+        $documents = Get-YamlDocuments -Yaml $d -UseMergingParser:$UseMergingParser
         if (!$documents.Count) {
             return
         }
