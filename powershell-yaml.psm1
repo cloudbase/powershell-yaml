@@ -251,43 +251,181 @@ function ConvertFrom-Yaml {
 
 $stringQuotingEmitterSource = @"
 using System;
+using System.Collections.Generic;
+using System.Globalization;
 using System.Text.RegularExpressions;
 using YamlDotNet;
 using YamlDotNet.Core;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.EventEmitters;
-public class StringQuotingEmitter: ChainedEventEmitter {
+
+
+public static class YamlFormatter
+{
+    public static readonly NumberFormatInfo NumberFormat = new NumberFormatInfo
+    {
+        CurrencyDecimalSeparator = ".",
+        CurrencyGroupSeparator = "_",
+        CurrencyGroupSizes = new[] { 3 },
+        CurrencySymbol = string.Empty,
+        CurrencyDecimalDigits = 99,
+        NumberDecimalSeparator = ".",
+        NumberGroupSeparator = "_",
+        NumberGroupSizes = new[] { 3 },
+        NumberDecimalDigits = 99,
+        NaNSymbol = ".nan",
+        PositiveInfinitySymbol = ".inf",
+        NegativeInfinitySymbol = "-.inf"
+    };
+
+    public static string FormatNumber(object number)
+    {
+        // NOTE (gsamfira): For some reason, this does not work
+        // on powershell core. Even though [System.Convert] is available
+        // in the powershell session itself, it cannot be referenced from
+        // within the C# code embeded here.
+        //return System.Convert.ToString(number, NumberFormat);
+        return number.ToString();
+    }
+
+    public static string FormatNumber(double number)
+    {
+        return number.ToString("G17", NumberFormat);
+    }
+
+    public static string FormatNumber(float number)
+    {
+        return number.ToString("G17", NumberFormat);
+    }
+
+    public static string FormatBoolean(object boolean)
+    {
+        return boolean.Equals(true) ? "true" : "false";
+    }
+
+    public static string FormatDateTime(object dateTime)
+    {
+        return ((DateTime)dateTime).ToString("o", CultureInfo.InvariantCulture);
+    }
+
+    public static string FormatTimeSpan(object timeSpan)
+    {
+        return ((TimeSpan)timeSpan).ToString();
+    }
+}
+
+public sealed class CustomTypeAssigningEventEmitter : ChainedEventEmitter
+{
     // Patterns from https://yaml.org/spec/1.2/spec.html#id2804356
     private static Regex quotedRegex = new Regex(@`"^(\~|null|true|false|-?(0|[0-9][0-9]*)(\.[0-9]*)?([eE][-+]?[0-9]+)?)?$`", RegexOptions.Compiled);
-    public StringQuotingEmitter(IEventEmitter next): base(next) {}
 
-    public override void Emit(ScalarEventInfo eventInfo, IEmitter emitter) {
-        var typeCode = eventInfo.Source.Value != null
-        ? Type.GetTypeCode(eventInfo.Source.Type)
-        : TypeCode.Empty;
+    public CustomTypeAssigningEventEmitter(IEventEmitter nextEmitter)
+        : base(nextEmitter)
+    {
+    }
 
-        switch (typeCode) {
-            case TypeCode.Char:
-                if (Char.IsDigit((char)eventInfo.Source.Value)) {
-                    eventInfo.Style = ScalarStyle.DoubleQuoted;
-                }
-                break;
-            case TypeCode.String:
-                var val = eventInfo.Source.Value.ToString();
-                if (quotedRegex.IsMatch(val))
-                {
-                    eventInfo.Style = ScalarStyle.DoubleQuoted;
-                } else if (val.IndexOf('\n') > -1) {
-                    eventInfo.Style = ScalarStyle.Literal;
-                }
-                break;
+    public override void Emit(ScalarEventInfo eventInfo, IEmitter emitter)
+    {
+        var suggestedStyle = ScalarStyle.Plain;
+
+        var value = eventInfo.Source.Value;
+        if (value == null)
+        {
+            eventInfo.Tag = "tag:yaml.org,2002:null";
+            eventInfo.RenderedValue = "";
+        }
+        else
+        {
+            var typeCode = Type.GetTypeCode(eventInfo.Source.Type);
+            switch (typeCode)
+            {
+                case TypeCode.Boolean:
+                    eventInfo.RenderedValue = YamlFormatter.FormatBoolean(value);
+                    break;
+
+                case TypeCode.Byte:
+                case TypeCode.Int16:
+                case TypeCode.Int32:
+                case TypeCode.Int64:
+                case TypeCode.SByte:
+                case TypeCode.UInt16:
+                case TypeCode.UInt32:
+                case TypeCode.UInt64:
+                    eventInfo.Tag = "tag:yaml.org,2002:int";
+                    eventInfo.RenderedValue = YamlFormatter.FormatNumber(value);
+                    break;
+                case TypeCode.Single:
+                case TypeCode.Double:
+                case TypeCode.Decimal:
+                    eventInfo.Tag = "tag:yaml.org,2002:float";
+                    eventInfo.RenderedValue = YamlFormatter.FormatNumber(value);
+                    break;
+
+                case TypeCode.String:
+                    eventInfo.Tag = "tag:yaml.org,2002:str";
+                    var val = eventInfo.Source.Value.ToString();
+                    if (quotedRegex.IsMatch(val))
+                    {
+                        eventInfo.Style = ScalarStyle.DoubleQuoted;
+                    } else if (val.IndexOf('\n') > -1) {
+                        eventInfo.Style = ScalarStyle.Literal;
+                    }
+                    eventInfo.RenderedValue = value.ToString();
+                    suggestedStyle = ScalarStyle.Any;
+                    break;
+                case TypeCode.Char:
+                    eventInfo.Tag = "tag:yaml.org,2002:str";
+                    if (Char.IsDigit((char)eventInfo.Source.Value)) {
+                        eventInfo.Style = ScalarStyle.DoubleQuoted;
+                    }
+                    eventInfo.RenderedValue = value.ToString();
+                    suggestedStyle = ScalarStyle.Any;
+
+                    break;
+
+                case TypeCode.DateTime:
+                    eventInfo.Tag = "tag:yaml.org,2002:timestamp";
+                    eventInfo.RenderedValue = YamlFormatter.FormatDateTime(value);
+                    break;
+
+                case TypeCode.Empty:
+                    eventInfo.Tag = "tag:yaml.org,2002:null";
+                    eventInfo.RenderedValue = "";
+                    break;
+
+                default:
+                    if (eventInfo.Source.Type == typeof(TimeSpan))
+                    {
+                        eventInfo.RenderedValue = YamlFormatter.FormatTimeSpan(value);
+                        break;
+                    }
+
+                    throw new NotSupportedException("TypeCode.{typeCode} is not supported.");
+            }
+        }
+
+        eventInfo.IsPlainImplicit = true;
+        if (eventInfo.Style == ScalarStyle.Any)
+        {
+            eventInfo.Style = suggestedStyle;
         }
 
         base.Emit(eventInfo, emitter);
     }
 
-    public static SerializerBuilder Add(SerializerBuilder builder) {
-        return builder.WithEventEmitter(next => new StringQuotingEmitter(next));
+    public override void Emit(MappingStartEventInfo eventInfo, IEmitter emitter)
+    {
+        base.Emit(eventInfo, emitter);
+    }
+
+    public override void Emit(SequenceStartEventInfo eventInfo, IEmitter emitter)
+    {
+        base.Emit(eventInfo, emitter);
+    }
+
+    public static SerializerBuilder ReplaceTypeAssigningEventEmitter(SerializerBuilder builder) {
+        builder.WithEventEmitter(inner => new CustomTypeAssigningEventEmitter(inner), loc => loc.InsteadOf<TypeAssigningEventEmitter>());
+        return builder;
     }
 }
 "@
@@ -305,6 +443,9 @@ function Get-Serializer {
     )
     
     $builder = New-Object "YamlDotNet.Serialization.SerializerBuilder"
+    if ( -not $Options.HasFlag([YamlDotNet.Serialization.SerializationOptions]::JsonCompatible)) {
+        $builder = [CustomTypeAssigningEventEmitter]::ReplaceTypeAssigningEventEmitter($builder)
+    }
     
     if ($Options.HasFlag([YamlDotNet.Serialization.SerializationOptions]::Roundtrip)) {
         $builder = $builder.EnsureRoundtrip()
@@ -321,7 +462,6 @@ function Get-Serializer {
     if ($Options.HasFlag([YamlDotNet.Serialization.SerializationOptions]::DefaultToStaticType)) {
         $builder = $builder.WithTypeResolver((New-Object "YamlDotNet.Serialization.TypeResolvers.StaticTypeResolver"))
     }
-    $builder = [StringQuotingEmitter]::Add($builder)
     return $builder.Build()
 }
 

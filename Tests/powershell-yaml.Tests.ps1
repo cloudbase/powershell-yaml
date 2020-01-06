@@ -29,6 +29,21 @@ InModuleScope $moduleName {
     $compareStrictly = Get-EquivalencyOption -Comparator Equality
 
     Describe "Test encode-decode symmetry." {
+        $floatsYaml = @"
+Example1: 7.2
+Example2: 7.3
+
+"@
+        $Expected = @{"Example1"=7.2; "Example2"= 7.3}
+
+        Context "Float precission" {
+            It "Should preserve float precission" {
+                $actual = ConvertFrom-Yaml $floatsYaml
+
+                Assert-Equivalent -Options $compareStrictly -Expected $Expected -Actual $actual
+                Assert-Equivalent -Options $compareStrictly -Expected $floatsYaml -Actual (ConvertTo-Yaml $actual)
+            }
+        }
 
         Context "Simple-Items" {
             It "Should represent identity to encode and decode." -TestCases @(
