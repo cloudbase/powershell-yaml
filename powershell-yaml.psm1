@@ -201,10 +201,16 @@ function Convert-PSObjectToGenericObject {
         [Parameter(Mandatory=$false,ValueFromPipeline=$true)]
         [System.Object]$Data
     )
-    if ($data -isnot [System.Object]) {
+
+    if ($null -eq $data) {
         return $data
     }
+
     $dataType = $data.GetType()
+    if ($data -isnot [System.Object]) {
+        return $data -as $dataType
+    }
+
     if ($dataType.FullName -eq "System.Management.Automation.PSCustomObject") {
         return Convert-PSCustomObjectToDictionary $data
     } elseif (([System.Collections.Specialized.OrderedDictionary].IsAssignableFrom($dataType))){
@@ -214,7 +220,7 @@ function Convert-PSObjectToGenericObject {
     } elseif (([System.Collections.IList].IsAssignableFrom($dataType))) {
         return Convert-ListToGenericList $data
     }
-    return $data
+    return $data -as $dataType
 }
 
 function ConvertFrom-Yaml {
