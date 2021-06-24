@@ -353,6 +353,8 @@ function ConvertTo-Yaml {
 
         [Parameter(ParameterSetName = 'NoOptions')]
         [switch]$JsonCompatible,
+        
+        [switch]$KeepArray,
 
         [switch]$Force
     )
@@ -368,7 +370,7 @@ function ConvertTo-Yaml {
         if ($d -eq $null -or $d.Count -eq 0) {
             return
         }
-        if ($d.Count -eq 1) {
+        if ($d.Count -eq 1 -and !($KeepArray)) {
             $d = $d[0]
         }
         $norm = Convert-PSObjectToGenericObject $d
