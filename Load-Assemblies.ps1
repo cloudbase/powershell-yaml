@@ -42,11 +42,12 @@ function Initialize-Assemblies {
         "StaticTypeResolver"
     )
 
-    $yaml = [System.AppDomain]::CurrentDomain.GetAssemblies() | ? Location -Match "YamlDotNet.dll"
-    if (!$yaml) {
+    $type = "YamlDotNet.Serialization.Serializer" -as [type]
+    if (!$type) {
         return Load-Assembly
     }
 
+    $yaml = $type.Assembly
     foreach ($i in $requiredTypes){
         if ($i -notin $yaml.DefinedTypes.Name) {
             Throw "YamlDotNet is loaded but missing required types ($i). Older version installed on system?"
