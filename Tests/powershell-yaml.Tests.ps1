@@ -99,7 +99,8 @@ iAmEmptyString: ""
         }
 
         Context "Test merging parser" {
-            $mergingYaml = @"
+            BeforeAll {
+                $mergingYaml = @"
 ---
 default: &default
   value1: 1
@@ -110,7 +111,7 @@ hoge:
   value3: 3
 "@
 
-            $mergingYamlOverwriteCase = @"
+                $mergingYamlOverwriteCase = @"
 ---
 default: &default
   value1: 1
@@ -121,6 +122,7 @@ hoge:
   value1: 33
   value3: 3
 "@
+            }
 
             It "Should expand merging key with appropriate referenced keys" {
                 $result = ConvertFrom-Yaml -Yaml $mergingYaml -UseMergingParser
@@ -188,8 +190,9 @@ Should -BeLike "*Duplicate key*"
     Describe "Being able to decode an externally provided string." {
 
         Context "Decoding an arbitrary YAML string correctly." {
-            # testYaml is just a string containing some yaml to be tested below:
-            $testYaml = @"
+            BeforeAll {
+                # testYaml is just a string containing some yaml to be tested below:
+                $testYaml = @"
 wishlist:
     - [coats, hats, and, scarves]
     - product     : A Cool Book.
@@ -221,33 +224,34 @@ bools:
     - True
     - False
 "@
+            
+                $expected = @{
+                    wishlist = @(
+                        @("coats", "hats", "and", "scarves"),
+                        @{
+                            product = "A Cool Book.";
+                            quantity = 1;
+                            description = "I love that Cool Book.";
+                            price = 55.34
+                        }
+                    );
+                    total = 4443.52;
+                    int64 = ([int64]::MaxValue);
+                    note = ("I can't wait. To get that Cool Book.`n");
+                    dates = @(
+                        [DateTime]::Parse('2001-12-15T02:59:43.1Z'),
+                        [DateTime]::Parse('2001-12-14t21:59:43.10-05:00'),
+                        [DateTime]::Parse('2001-12-14 21:59:43.10 -5'),
+                        [DateTime]::Parse('2001-12-15 2:59:43.10'),
+                        [DateTime]::Parse('2002-12-14')
+                    );
+                    version = "1.2.3";
+                    noniso8601dates = @( '5/4/2017', '1.2.3' );            
+                    bools = @( $true, $false, $true, $false, $true, $false );
+                }
 
-            $expected = @{
-                wishlist = @(
-                    @("coats", "hats", "and", "scarves"),
-                    @{
-                        product = "A Cool Book.";
-                        quantity = 1;
-                        description = "I love that Cool Book.";
-                        price = 55.34
-                    }
-                );
-                total = 4443.52;
-                int64 = ([int64]::MaxValue);
-                note = ("I can't wait. To get that Cool Book.`n");
-                dates = @(
-                    [DateTime]::Parse('2001-12-15T02:59:43.1Z'),
-                    [DateTime]::Parse('2001-12-14t21:59:43.10-05:00'),
-                    [DateTime]::Parse('2001-12-14 21:59:43.10 -5'),
-                    [DateTime]::Parse('2001-12-15 2:59:43.10'),
-                    [DateTime]::Parse('2002-12-14')
-                );
-                version = "1.2.3";
-                noniso8601dates = @( '5/4/2017', '1.2.3' );            
-                bools = @( $true, $false, $true, $false, $true, $false );
+                $res = ConvertFrom-Yaml $testYaml
             }
-
-            $res = ConvertFrom-Yaml $testYaml
 
             It "Should decode the YAML string as expected." {
                 $wishlist = $res['wishlist']
@@ -297,14 +301,15 @@ bools:
     Describe "Test ConvertTo-Yaml -OutFile parameter behavior" {
 
         Context "Providing -OutFile with invalid prefix." {
-            $testPath = "/some/bogus/path"
-            $testObject = 42
-
-            # mock Test-Path to fail so the test for the directory of the -OutFile fails:
-            Mock Test-Path { return $false } -Verifiable -ParameterFilter { $OutFile -eq $testPath }
+            BeforeAll {
+                $testPath = "/some/bogus/path"
+                $testObject = 42
+                # mock Test-Path to fail so the test for the directory of the -OutFile fails:
+                Mock Test-Path { return $false } -Verifiable -ParameterFilter { $OutFile -eq $testPath }
+            }
 
             It "Should refuse to work with an -OutFile with an invalid prefix." {
-                { ConvertTo-Yaml $testObject -OutFile $testPath } | Should Throw "Parent folder for specified path does not exist"
+                { ConvertTo-Yaml $testObject -OutFile $testPath } | Should -Throw "Parent folder for specified path does not exist"
             }
 
             It "Should verify that all the required mocks were called." {
@@ -313,14 +318,15 @@ bools:
         }
 
         Context "Providing existing -OutFile without -Force." {
-            $testPath = "/some/bogus/path"
-            $testObject = "A random string this time."
-
-            # mock Test-Path to succeed so the -OutFile seems to exist:
-            Mock Test-Path { return $true } -Verifiable -ParameterFilter { $OutFile -eq $testPath }
+            BeforeAll {
+                $testPath = "/some/bogus/path"
+                $testObject = "A random string this time."
+                # mock Test-Path to succeed so the -OutFile seems to exist:
+                Mock Test-Path { return $true } -Verifiable -ParameterFilter { $OutFile -eq $testPath }
+            }
 
             It "Should refuse to work for an existing -OutFile but no -Force flag." {
-                { ConvertTo-Yaml $testObject -OutFile $testPath } | Should Throw "Target file already exists. Use -Force to overwrite."
+                { ConvertTo-Yaml $testObject -OutFile $testPath } | Should -Throw "Target file already exists. Use -Force to overwrite."
             }
 
             It "Should verify that all the required mocks were called." {
@@ -329,9 +335,11 @@ bools:
         }
 
         Context "Providing a valid -OutFile." {
-            $testObject = @{ yes = "No"; "arr" = @(1, 2, 3) }
-            $testPath = [System.IO.Path]::GetTempFileName()
-            Remove-Item -Force $testPath # must be deleted for the test
+            BeforeAll {
+                $testObject = @{ yes = "No"; "arr" = @(1, 2, 3) }
+                $testPath = [System.IO.Path]::GetTempFileName()
+                Remove-Item -Force $testPath # must be deleted for the test
+            }
 
             It "Should succesfully write the expected content to the specified -OutFile." {
                 $yaml = ConvertTo-Yaml $testObject
@@ -356,9 +364,12 @@ bools:
     
     Describe "Generic Casting Behaviour" {
         Context "Node Style is 'Plain'" {
-            $value = @'
+            BeforeAll {
+                $value = @'
  T1: 001
 '@
+            }
+
             It 'Should be an int' {
                 $result = ConvertFrom-Yaml -Yaml $value
                 $result.T1 | Should -BeOfType System.Int32
@@ -376,9 +387,12 @@ bools:
         }
         
         Context "Node Style is 'SingleQuoted'" {
-            $value = @'
+            BeforeAll {
+                $value = @'
  T1: '001'
 '@
+            }
+
             It 'Should be a string' {
                 $result = ConvertFrom-Yaml -Yaml $value
                 $result.T1 | Should -BeOfType System.String
@@ -396,9 +410,12 @@ bools:
         }
         
         Context "Node Style is 'DoubleQuoted'" {
-            $value = @'
+            BeforeAll {
+                $value = @'
  T1: "001"
 '@
+            }
+            
             It 'Should be a string' {
                 $result = ConvertFrom-Yaml -Yaml $value
                 $result.T1 | Should -BeOfType System.String
@@ -418,49 +435,63 @@ bools:
 
     Describe 'Strings containing other primitives' {
         Context 'String contains an int' {
-            $value = @{key="1"}
+            BeforeAll {
+                $value = @{key="1"}
+            }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
                 $result | Should -Be "key: ""1""$([Environment]::NewLine)"
             }
         }
         Context 'String contains a float' {
-            $value = @{key="0.25"}
+            BeforeAll {
+                $value = @{key="0.25"}
+            }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
                 $result | Should -Be "key: ""0.25""$([Environment]::NewLine)"
             }
         }
         Context 'String is "true"' {
-            $value = @{key="true"}
+            BeforeAll {
+                $value = @{key="true"}
+            }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
                 $result | Should -Be "key: ""true""$([Environment]::NewLine)"
             }
         }
         Context 'String is "false"' {
-            $value = @{key="false"}
+            BeforeAll {
+                $value = @{key="false"}
+            }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
                 $result | Should -Be "key: ""false""$([Environment]::NewLine)"
             }
         }
         Context 'String is "null"' {
-            $value = @{key="null"}
+            BeforeAll {
+                $value = @{key="null"}
+            }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
                 $result | Should -Be "key: ""null""$([Environment]::NewLine)"
             }
         }
         Context 'String is "~" (alternative syntax for null)' {
-            $value = @{key="~"}
+            BeforeAll {
+                $value = @{key="~"}
+            }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
                 $result | Should -Be "key: ""~""$([Environment]::NewLine)"
             }
         }
         Context 'String is empty' {
-            $value = @{key=""}
+            BeforeAll {
+                $value = @{key=""}
+            }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
                 $result | Should -Be "key: """"$([Environment]::NewLine)"
