@@ -1,6 +1,6 @@
 # powershell-yaml
 
-This powershell module is a thin wrapper on top of [YamlDotNet](https://github.com/aaubry/YamlDotNet "YamlDotNet") that serializes and un-serializes simple powershell objects to and from YAML. It was tested on powershell versions 4 and 5, supports [Nano Server](https://technet.microsoft.com/en-us/library/mt126167.aspx "Nano") and aparently works with powershell on Linux. I suspect it works on Mac as well, but I have not had a chance to test it.
+This powershell module is a thin wrapper on top of [YamlDotNet](https://github.com/aaubry/YamlDotNet "YamlDotNet") that serializes and un-serializes simple powershell objects to and from YAML. It was tested on powershell versions 4 and 5, supports [Nano Server](https://technet.microsoft.com/en-us/library/mt126167.aspx "Nano") and apparently works with powershell on Linux. I suspect it works on Mac as well, but I have not had a chance to test it.
 
 The ```lib``` folder contains the YamlDotNet assemblies. They are not really required, just a fall-back in case your system does not already have them installed and loaded. Feel free to remove the ```lib``` folder if you prefer to add the required assemblies yourself.
 
