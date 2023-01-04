@@ -23,11 +23,15 @@ function Load-Assembly {
         "net35" = Join-Path $libDir "net35\YamlDotNet.dll";
     }
 
-    if ($PSVersionTable.PSEdition -eq "Core") {
-        return [Reflection.Assembly]::LoadFrom($assemblies["core"])
-    } elseif ($PSVersionTable.PSVersion.Major -ge 4) {
-        return [Reflection.Assembly]::LoadFrom($assemblies["net45"])
-    } else {
+    if ($PSVersionTable.Keys -contains "PSEdition") {
+        if ($PSVersionTable.PSEdition -eq "Core") {
+            return [Reflection.Assembly]::LoadFrom($assemblies["core"])
+        } elseif ($PSVersionTable.PSVersion.Major -ge 4) {
+            return [Reflection.Assembly]::LoadFrom($assemblies["net45"])
+        } else {
+            return [Reflection.Assembly]::LoadFrom($assemblies["net35"])
+        }
+    } else { # Powershell 4.0 and lower do not know "PSEdition" yet
         return [Reflection.Assembly]::LoadFrom($assemblies["net35"])
     }
 }
