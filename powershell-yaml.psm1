@@ -101,12 +101,13 @@ function Convert-YamlMappingToHashtable {
     Param(
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
         [YamlDotNet.RepresentationModel.YamlMappingNode]$Node,
-        [switch] $Ordered
+        [switch]$Ordered,
+        [switch]$DontConvertValues
     )
     PROCESS {
         if ($Ordered) { $ret = [ordered]@{} } else { $ret = @{} }
         foreach($i in $Node.Children.Keys) {
-            $ret[$i.Value] = Convert-YamlDocumentToPSObject $Node.Children[$i] -Ordered:$Ordered
+            $ret[$i.Value] = Convert-YamlDocumentToPSObject $Node.Children[$i] -Ordered:$Ordered -DontConvertValues:$DontConvertValues
         }
         return $ret
     }
@@ -117,12 +118,13 @@ function Convert-YamlSequenceToArray {
     Param(
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
         [YamlDotNet.RepresentationModel.YamlSequenceNode]$Node,
-        [switch]$Ordered
+        [switch]$Ordered,
+        [switch]$DontConvertValues
     )
     PROCESS {
         $ret = [System.Collections.Generic.List[object]](New-Object "System.Collections.Generic.List[object]")
         foreach($i in $Node.Children){
-            $ret.Add((Convert-YamlDocumentToPSObject $i -Ordered:$Ordered))
+            $ret.Add((Convert-YamlDocumentToPSObject $i -Ordered:$Ordered -DontConvertValues:$DontConvertValues))
         }
         return ,$ret
     }
@@ -133,18 +135,23 @@ function Convert-YamlDocumentToPSObject {
     Param(
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
         [System.Object]$Node, 
-        [switch]$Ordered
+        [switch]$Ordered,
+        [switch]$DontConvertValues
     )
     PROCESS {
         switch($Node.GetType().FullName){
             "YamlDotNet.RepresentationModel.YamlMappingNode"{
-                return Convert-YamlMappingToHashtable $Node -Ordered:$Ordered
+                return Convert-YamlMappingToHashtable $Node -Ordered:$Ordered -DontConvertValues:$DontConvertValues
             }
             "YamlDotNet.RepresentationModel.YamlSequenceNode" {
-                return Convert-YamlSequenceToArray $Node -Ordered:$Ordered
+                return Convert-YamlSequenceToArray $Node -Ordered:$Ordered -DontConvertValues:$DontConvertValues
             }
             "YamlDotNet.RepresentationModel.YamlScalarNode" {
-                return (Convert-ValueToProperType $Node)
+                if ($DontConvertValues) {
+                    return $Node.Value
+                } else {
+                    return (Convert-ValueToProperType $Node)
+                }
             }
         }
     }
@@ -230,7 +237,8 @@ function ConvertFrom-Yaml {
         [string]$Yaml,
         [switch]$AllDocuments=$false,
         [switch]$Ordered,
-        [switch]$UseMergingParser=$false
+        [switch]$UseMergingParser=$false,
+        [switch]$DontConvertValues
     )
 
     BEGIN {
@@ -251,14 +259,14 @@ function ConvertFrom-Yaml {
             return
         }
         if($documents.Count -eq 1){
-            return Convert-YamlDocumentToPSObject $documents[0].RootNode -Ordered:$Ordered
+            return Convert-YamlDocumentToPSObject $documents[0].RootNode -Ordered:$Ordered -DontConvertValues:$DontConvertValues
         }
         if(!$AllDocuments) {
-            return Convert-YamlDocumentToPSObject $documents[0].RootNode -Ordered:$Ordered
+            return Convert-YamlDocumentToPSObject $documents[0].RootNode -Ordered:$Ordered -DontConvertValues:$DontConvertValues
         }
         $ret = @()
         foreach($i in $documents) {
-            $ret += Convert-YamlDocumentToPSObject $i.RootNode -Ordered:$Ordered
+            $ret += Convert-YamlDocumentToPSObject $i.RootNode -Ordered:$Ordered -DontConvertValues:$DontConvertValues
         }
         return $ret
     }
