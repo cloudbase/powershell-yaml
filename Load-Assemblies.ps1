@@ -18,7 +18,7 @@ $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 function Load-Assembly {
     $libDir = Join-Path $here "lib"
     $assemblies = @{
-        "core" = Join-Path $libDir "netstandard1.3\YamlDotNet.dll";
+        "core" = Join-Path $libDir "netstandard2.1\YamlDotNet.dll";
         "net45" = Join-Path $libDir "net45\YamlDotNet.dll";
         "net35" = Join-Path $libDir "net35\YamlDotNet.dll";
     }
