@@ -20,6 +20,7 @@ enum SerializationOptions {
     EmitDefaults = 4
     JsonCompatible = 8
     DefaultToStaticType = 16
+    WithIndentedSequences = 32
 }
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $assemblies = Join-Path $here "Load-Assemblies.ps1"
@@ -344,6 +345,9 @@ function Get-Serializer {
     }
     if ($Options.HasFlag([SerializationOptions]::DefaultToStaticType)) {
         $builder = $builder.WithTypeResolver((New-Object "YamlDotNet.Serialization.TypeResolvers.StaticTypeResolver"))
+    }
+    if ($Options.HasFlag([SerializationOptions]::WithIndentedSequences)) {
+        $builder = $builder.WithIndentedSequences()
     }
     $builder = [StringQuotingEmitter]::Add($builder)
     return $builder.Build()
