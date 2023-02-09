@@ -317,6 +317,7 @@ public class StringQuotingEmitter: ChainedEventEmitter {
 
 $referenceList = @([YamlDotNet.Serialization.Serializer].Assembly.Location,[Text.RegularExpressions.Regex].Assembly.Location)
 if ($PSVersionTable.PSEdition -eq "Core") {
+    $referenceList += [IO.Directory]::GetFiles([IO.Path]::Combine($PSHOME, 'ref'), 'netstandard.dll', [IO.SearchOption]::TopDirectoryOnly)
     Add-Type -TypeDefinition $stringQuotingEmitterSource -ReferencedAssemblies $referenceList -Language CSharp -CompilerOptions "-nowarn:1701"
 } else {
     Add-Type -TypeDefinition $stringQuotingEmitterSource -ReferencedAssemblies $referenceList -Language CSharp
