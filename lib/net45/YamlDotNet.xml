@@ -3479,6 +3479,30 @@
             The <see cref="T:YamlDotNet.RepresentationModel.YamlMappingNode"/> that is being visited.
             </param>
         </member>
+        <!-- Badly formed XML comment ignored for member "T:YamlDotNet.Serialization.BufferedDeserialization.BufferedNodeDeserializer" -->
+        <member name="M:YamlDotNet.Serialization.BufferedDeserialization.BufferedNodeDeserializerOptions.AddTypeDiscriminator(YamlDotNet.Serialization.BufferedDeserialization.TypeDiscriminators.ITypeDiscriminator)">
+            <summary>
+            Adds an <see cref="T:YamlDotNet.Serialization.BufferedDeserialization.TypeDiscriminators.ITypeDiscriminator" /> to be checked by the BufferedNodeDeserializer.
+            </summary>
+            <param name="discriminator">The <see cref="T:YamlDotNet.Serialization.BufferedDeserialization.TypeDiscriminators.ITypeDiscriminator" /> to add.</param>
+        </member>
+        <member name="M:YamlDotNet.Serialization.BufferedDeserialization.BufferedNodeDeserializerOptions.AddKeyValueTypeDiscriminator``1(System.String,System.Collections.Generic.IDictionary{System.String,System.Type})">
+            <summary>
+            Adds a <see cref="T:YamlDotNet.Serialization.BufferedDeserialization.TypeDiscriminators.KeyValueTypeDiscriminator" /> to be checked by the BufferedNodeDeserializer.
+            <see cref="T:YamlDotNet.Serialization.BufferedDeserialization.TypeDiscriminators.KeyValueTypeDiscriminator" />s use the value of a specified key on the yaml object to map
+            to a target type.
+            </summary>
+            <param name="discriminatorKey">The yaml key to discriminate on.</param>
+            <param name="valueTypeMapping">A dictionary of values for the yaml key mapping to their respective types.</param>
+        </member>
+        <member name="M:YamlDotNet.Serialization.BufferedDeserialization.BufferedNodeDeserializerOptions.AddUniqueKeyTypeDiscriminator``1(System.Collections.Generic.IDictionary{System.String,System.Type})">
+            <summary>
+            Adds a <see cref="T:YamlDotNet.Serialization.BufferedDeserialization.TypeDiscriminators.UniqueKeyTypeDiscriminator" /> to be checked by the BufferedNodeDeserializer.
+            <see cref="T:YamlDotNet.Serialization.BufferedDeserialization.TypeDiscriminators.UniqueKeyTypeDiscriminator" />s use the presence of unique keys on the yaml object to map
+            to different target types.
+            </summary>
+            <param name="uniqueKeyTypeMapping">A dictionary of unique yaml keys mapping to their respective types.</param>
+        </member>
         <member name="T:YamlDotNet.Serialization.BuilderSkeleton`1">
             <summary>
             Common implementation of <see cref="T:YamlDotNet.Serialization.SerializerBuilder" /> and <see cref="T:YamlDotNet.Serialization.DeserializerBuilder" />.
@@ -3774,6 +3798,16 @@
             <summary>
             Unregisters an existing <see cref="T:YamlDotNet.Serialization.INodeDeserializer" /> of type <param name="nodeDeserializerType" />.
             </summary>
+        </member>
+        <member name="M:YamlDotNet.Serialization.DeserializerBuilder.WithBufferedNodeDeserializer(System.Action{YamlDotNet.Serialization.BufferedDeserialization.IBufferedNodeDeserializerOptions},System.Int32,System.Int32)">
+            <summary>
+            Registers a <see cref="T:YamlDotNet.Serialization.BufferedDeserialization.BufferedNodeDeserializer" /> to be used by the deserializer. This internally registers
+            all existing <see cref="T:YamlDotNet.Serialization.INodeDeserializer" /> as inner deserializers available to the <see cref="T:YamlDotNet.Serialization.BufferedDeserialization.BufferedNodeDeserializer" />.
+            Usually you will want to call this after any other changes to the <see cref="T:YamlDotNet.Serialization.INodeDeserializer" />s used by the deserializer.
+            </summary>
+            <param name="configureBufferedNodeDeserializerOptions">An action that can configure the <see cref="T:YamlDotNet.Serialization.BufferedDeserialization.BufferedNodeDeserializer" />.</param>
+            <param name="maxDepth">Configures the max depth of yaml nodes that will be buffered. A value of -1 (the default) means yaml nodes of any depth will be buffered.</param>
+            <param name="maxLength">Configures the max number of yaml nodes that will be buffered. A value of -1 (the default) means there is no limit on the number of yaml nodes buffered.</param>
         </member>
         <member name="M:YamlDotNet.Serialization.DeserializerBuilder.WithNodeTypeResolver(YamlDotNet.Serialization.INodeTypeResolver)">
             <summary>
@@ -4816,6 +4850,16 @@
             <summary>
             Unregisters an existing <see cref="T:YamlDotNet.Serialization.INodeDeserializer" /> of type <param name="nodeDeserializerType" />.
             </summary>
+        </member>
+        <member name="M:YamlDotNet.Serialization.StaticDeserializerBuilder.WithBufferedNodeDeserializer(System.Action{YamlDotNet.Serialization.BufferedDeserialization.IBufferedNodeDeserializerOptions},System.Int32,System.Int32)">
+            <summary>
+            Registers a <see cref="T:YamlDotNet.Serialization.BufferedDeserialization.BufferedNodeDeserializer" /> to be used by the deserializer. This internally registers
+            all existing <see cref="T:YamlDotNet.Serialization.INodeDeserializer" /> as inner deserializers available to the <see cref="T:YamlDotNet.Serialization.BufferedDeserialization.BufferedNodeDeserializer" />.
+            Usually you will want to call this after any other changes to the <see cref="T:YamlDotNet.Serialization.INodeDeserializer" />s used by the deserializer.
+            </summary>
+            <param name="configureBufferedNodeDeserializerOptions">An action that can configure the <see cref="T:YamlDotNet.Serialization.BufferedDeserialization.BufferedNodeDeserializer" />.</param>
+            <param name="maxDepth">Configures the max depth of yaml nodes that will be buffered. A value of -1 (the default) means yaml nodes of any depth will be buffered.</param>
+            <param name="maxLength">Configures the max number of yaml nodes that will be buffered. A value of -1 (the default) means there is no limit on the number of yaml nodes buffered.</param>
         </member>
         <member name="M:YamlDotNet.Serialization.StaticDeserializerBuilder.WithNodeTypeResolver(YamlDotNet.Serialization.INodeTypeResolver)">
             <summary>
