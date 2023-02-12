@@ -13,6 +13,15 @@
 #    under the License.
 #
 
+enum SerializationOptions {
+    None = 0
+    Roundtrip = 1
+    DisableAliases = 2
+    EmitDefaults = 4
+    JsonCompatible = 8
+    DefaultToStaticType = 16
+    WithIndentedSequences = 32
+}
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $assemblies = Join-Path $here "Load-Assemblies.ps1"
 
@@ -309,6 +318,7 @@ public class StringQuotingEmitter: ChainedEventEmitter {
 
 $referenceList = @([YamlDotNet.Serialization.Serializer].Assembly.Location,[Text.RegularExpressions.Regex].Assembly.Location)
 if ($PSVersionTable.PSEdition -eq "Core") {
+    $referenceList += [IO.Directory]::GetFiles([IO.Path]::Combine($PSHOME, 'ref'), 'netstandard.dll', [IO.SearchOption]::TopDirectoryOnly)
     Add-Type -TypeDefinition $stringQuotingEmitterSource -ReferencedAssemblies $referenceList -Language CSharp -CompilerOptions "-nowarn:1701"
 } else {
     Add-Type -TypeDefinition $stringQuotingEmitterSource -ReferencedAssemblies $referenceList -Language CSharp
@@ -316,25 +326,28 @@ if ($PSVersionTable.PSEdition -eq "Core") {
 
 function Get-Serializer {
     Param(
-        [Parameter(Mandatory=$true)][YamlDotNet.Serialization.SerializationOptions]$Options
+        [Parameter(Mandatory=$true)][SerializationOptions]$Options
     )
     
     $builder = New-Object "YamlDotNet.Serialization.SerializerBuilder"
     
-    if ($Options.HasFlag([YamlDotNet.Serialization.SerializationOptions]::Roundtrip)) {
+    if ($Options.HasFlag([SerializationOptions]::Roundtrip)) {
         $builder = $builder.EnsureRoundtrip()
     }
-    if ($Options.HasFlag([YamlDotNet.Serialization.SerializationOptions]::DisableAliases)) {
+    if ($Options.HasFlag([SerializationOptions]::DisableAliases)) {
         $builder = $builder.DisableAliases()
     }
-    if ($Options.HasFlag([YamlDotNet.Serialization.SerializationOptions]::EmitDefaults)) {
+    if ($Options.HasFlag([SerializationOptions]::EmitDefaults)) {
         $builder = $builder.EmitDefaults()
     }
-    if ($Options.HasFlag([YamlDotNet.Serialization.SerializationOptions]::JsonCompatible)) {
+    if ($Options.HasFlag([SerializationOptions]::JsonCompatible)) {
         $builder = $builder.JsonCompatible()
     }
-    if ($Options.HasFlag([YamlDotNet.Serialization.SerializationOptions]::DefaultToStaticType)) {
+    if ($Options.HasFlag([SerializationOptions]::DefaultToStaticType)) {
         $builder = $builder.WithTypeResolver((New-Object "YamlDotNet.Serialization.TypeResolvers.StaticTypeResolver"))
+    }
+    if ($Options.HasFlag([SerializationOptions]::WithIndentedSequences)) {
+        $builder = $builder.WithIndentedSequences()
     }
     $builder = [StringQuotingEmitter]::Add($builder)
     return $builder.Build()
@@ -349,7 +362,7 @@ function ConvertTo-Yaml {
         [string]$OutFile,
 
         [Parameter(ParameterSetName = 'Options')]
-        [YamlDotNet.Serialization.SerializationOptions]$Options = [YamlDotNet.Serialization.SerializationOptions]::Roundtrip,
+        [SerializationOptions]$Options = [SerializationOptions]::Roundtrip,
 
         [Parameter(ParameterSetName = 'NoOptions')]
         [switch]$JsonCompatible,
@@ -391,7 +404,7 @@ function ConvertTo-Yaml {
             $Options = 0
             if ($JsonCompatible) {
                 # No indent options :~(
-                $Options = [YamlDotNet.Serialization.SerializationOptions]::JsonCompatible
+                $Options = [SerializationOptions]::JsonCompatible
             }
         }
 
