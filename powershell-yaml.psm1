@@ -63,6 +63,46 @@ function Convert-ValueToProperType {
             return $Node
         }
         
+        if ([string]::IsNullOrEmpty($Node.Tag) -eq $false) {
+            switch($Node.Tag) {
+                "tag:yaml.org,2002:str" {
+                    return $Node.Value
+                }
+                "tag:yaml.org,2002:null" {
+                    return $null
+                }
+                "tag:yaml.org,2002:bool" {
+                    $parsedValue = $false
+                    if (![boolean]::TryParse($Node, [ref]$parsedValue)) {
+                        Throw ("failed to parse scalar {0} as boolean" -f $Node)
+                    }
+                    return $parsedValue
+                }
+                "tag:yaml.org,2002:int" {
+                    $parsedValue = 0
+                    if (![long]::TryParse($Node, [Globalization.NumberStyles]::Any, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)) {
+                        Throw ("failed to parse scalar {0} as long" -f $Node)
+                    }
+                    return $parsedValue
+                }
+                "tag:yaml.org,2002:float" {
+                    $parsedValue = 0.0
+                    if (![double]::TryParse($Node, [Globalization.NumberStyles]::Any, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)) {
+                        Throw ("failed to parse scalar {0} as double" -f $Node)
+                    }
+                    return $parsedValue
+                }
+                "tag:yaml.org,2002:timestamp" {
+                    # From the YAML spec: http://yaml.org/type/timestamp.html
+                    [DateTime]$parsedValue = [DateTime]::MinValue
+                    if(![DateTime]::TryParse($Node.Value,[ref]$parsedValue)) {
+                        Throw ("failed to parse scalar {0} as DateTime" -f $Node)
+                    }
+                    return $parsedValue
+                }
+            }
+        }
+
         if ($Node.Style -eq 'Plain')
         {
             $types = @([int], [long], [double], [boolean], [decimal])
@@ -76,24 +116,6 @@ function Convert-ValueToProperType {
                 if( $result ) {
                     return $parsedValue
                 }
-            }
-        }
-        # From the YAML spec: http://yaml.org/type/timestamp.html
-        $regex = @'
-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] # (ymd)
-|[0-9][0-9][0-9][0-9] # (year)
- -[0-9][0-9]? # (month)
- -[0-9][0-9]? # (day)
- ([Tt]|[ \t]+)[0-9][0-9]? # (hour)
- :[0-9][0-9] # (minute)
- :[0-9][0-9] # (second)
- (\.[0-9]*)? # (fraction)
- (([ \t]*)Z|[-+][0-9][0-9]?(:[0-9][0-9])?)? # (time zone)
-'@
-        if([Text.RegularExpressions.Regex]::IsMatch($Node.Value, $regex, [Text.RegularExpressions.RegexOptions]::IgnorePatternWhitespace) ) {
-            [DateTime]$datetime = [DateTime]::MinValue
-            if( ([DateTime]::TryParse($Node.Value,[ref]$datetime)) ) {
-                return $datetime
             }
         }
 

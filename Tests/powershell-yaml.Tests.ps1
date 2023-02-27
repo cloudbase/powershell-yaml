@@ -46,8 +46,8 @@ InModuleScope $moduleName {
 
         Context "Nulls and strings" {
             BeforeAll {
-                $nullAndString = [ordered]@{"iAmNull"= $null; "iAmEmptyString"=""}
-                $yaml = @"
+                $global:nullAndString = [ordered]@{"iAmNull"= $null; "iAmEmptyString"=""}
+                $global:yaml = @"
 iAmNull: 
 iAmEmptyString: ""
 
@@ -100,7 +100,7 @@ iAmEmptyString: ""
 
         Context "Test merging parser" {
             BeforeAll {
-                $mergingYaml = @"
+                $global:mergingYaml = @"
 ---
 default: &default
   value1: 1
@@ -111,7 +111,7 @@ hoge:
   value3: 3
 "@
 
-                $mergingYamlOverwriteCase = @"
+                $global:mergingYamlOverwriteCase = @"
 ---
 default: &default
   value1: 1
@@ -206,11 +206,18 @@ note: >
     To get that Cool Book.
 
 dates:
+    - !!timestamp 2001-12-15T02:59:43.1Z
+    - !!timestamp 2001-12-14t21:59:43.10-05:00
+    - !!timestamp 2001-12-14 21:59:43.10 -5
+    - !!timestamp 2001-12-15 2:59:43.10
+    - !!timestamp 2002-12-14
+datesAsStrings:
     - 2001-12-15T02:59:43.1Z
     - 2001-12-14t21:59:43.10-05:00
     - 2001-12-14 21:59:43.10 -5
     - 2001-12-15 2:59:43.10
     - 2002-12-14
+
 version:
     - 1.2.3
 noniso8601dates:
@@ -225,7 +232,7 @@ bools:
     - False
 "@
             
-                $expected = @{
+                $global:expected = @{
                     wishlist = @(
                         @("coats", "hats", "and", "scarves"),
                         @{
@@ -245,12 +252,19 @@ bools:
                         [DateTime]::Parse('2001-12-15 2:59:43.10'),
                         [DateTime]::Parse('2002-12-14')
                     );
+                    datesAsStrings = @(
+                        "2001-12-15T02:59:43.1Z",
+                        "2001-12-14t21:59:43.10-05:00",
+                        "2001-12-14 21:59:43.10 -5",
+                        "2001-12-15 2:59:43.10",
+                        "2002-12-14"
+                    );
                     version = "1.2.3";
                     noniso8601dates = @( '5/4/2017', '1.2.3' );            
                     bools = @( $true, $false, $true, $false, $true, $false );
                 }
 
-                $res = ConvertFrom-Yaml $testYaml
+                $global:res = ConvertFrom-Yaml $testYaml
             }
 
             It "Should decode the YAML string as expected." {
@@ -281,6 +295,14 @@ bools:
                     $res['dates'][$idx] | Should -Be $expected['dates'][$idx]
                 }
 
+                $res['datesAsStrings'] | Should -Not -BeNullOrEmpty
+                $res['datesAsStrings'].Count | Should -Be $expected['datesAsStrings'].Count
+                for( $idx = 0; $idx -lt $expected['datesAsStrings'].Count; ++$idx )
+                {
+                    $res['datesAsStrings'][$idx] | Should -BeOfType ([string])
+                    $res['datesAsStrings'][$idx] | Should -Be $expected['dates'][$idx]
+                }
+
                 $res['version'] | Should -BeOfType ([string])
                 $res['version'] | Should -Be $expected['version']
 
@@ -303,7 +325,7 @@ bools:
         Context "Providing -OutFile with invalid prefix." {
             BeforeAll {
                 $testPath = "/some/bogus/path"
-                $testObject = 42
+                $global:testObject = 42
                 # mock Test-Path to fail so the test for the directory of the -OutFile fails:
                 Mock Test-Path { return $false } -Verifiable -ParameterFilter { $OutFile -eq $testPath }
             }
@@ -320,7 +342,7 @@ bools:
         Context "Providing existing -OutFile without -Force." {
             BeforeAll {
                 $testPath = "/some/bogus/path"
-                $testObject = "A random string this time."
+                $global:testObject = "A random string this time."
                 # mock Test-Path to succeed so the -OutFile seems to exist:
                 Mock Test-Path { return $true } -Verifiable -ParameterFilter { $OutFile -eq $testPath }
             }
@@ -336,7 +358,7 @@ bools:
 
         Context "Providing a valid -OutFile." {
             BeforeAll {
-                $testObject = @{ yes = "No"; "arr" = @(1, 2, 3) }
+                $global:testObject = @{ yes = "No"; "arr" = @(1, 2, 3) }
                 $testPath = [System.IO.Path]::GetTempFileName()
                 Remove-Item -Force $testPath # must be deleted for the test
             }
@@ -365,7 +387,7 @@ bools:
     Describe "Generic Casting Behaviour" {
         Context "Node Style is 'Plain'" {
             BeforeAll {
-                $value = @'
+                $global:value = @'
  T1: 001
 '@
             }
@@ -388,7 +410,7 @@ bools:
         
         Context "Node Style is 'SingleQuoted'" {
             BeforeAll {
-                $value = @'
+                $global:value = @'
  T1: '001'
 '@
             }
@@ -411,7 +433,7 @@ bools:
         
         Context "Node Style is 'DoubleQuoted'" {
             BeforeAll {
-                $value = @'
+                $global:value = @'
  T1: "001"
 '@
             }
@@ -436,7 +458,7 @@ bools:
     Describe 'Strings containing other primitives' {
         Context 'String contains an int' {
             BeforeAll {
-                $value = @{key="1"}
+                $global:value = @{key="1"}
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
@@ -445,7 +467,7 @@ bools:
         }
         Context 'String contains a float' {
             BeforeAll {
-                $value = @{key="0.25"}
+                $global:value = @{key="0.25"}
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
@@ -454,7 +476,7 @@ bools:
         }
         Context 'String is "true"' {
             BeforeAll {
-                $value = @{key="true"}
+                $global:value = @{key="true"}
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
@@ -463,7 +485,7 @@ bools:
         }
         Context 'String is "false"' {
             BeforeAll {
-                $value = @{key="false"}
+                $global:value = @{key="false"}
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
@@ -472,7 +494,7 @@ bools:
         }
         Context 'String is "null"' {
             BeforeAll {
-                $value = @{key="null"}
+                $global:value = @{key="null"}
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
@@ -481,7 +503,7 @@ bools:
         }
         Context 'String is "~" (alternative syntax for null)' {
             BeforeAll {
-                $value = @{key="~"}
+                $global:value = @{key="~"}
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
@@ -490,7 +512,7 @@ bools:
         }
         Context 'String is empty' {
             BeforeAll {
-                $value = @{key=""}
+                $global:value = @{key=""}
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
