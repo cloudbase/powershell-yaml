@@ -207,7 +207,41 @@ PS C:\> ConvertFrom-Yaml $yaml | ConvertTo-Yaml -JsonCompatible
 
 ```
 
-## Running the tests.
+## Using tags
+
+Using tags is prefered as opposed to allowing ```powershell-yaml``` to infer the type. Whenever there is a risc of ambiguity, use tags to make sure your values are converted using the intended type. This module supports the [tags specified by the core schema](http://yaml.org/spec/1.2-old/spec.html#id2804923), and aditionally the ```!!timestamp``` tag.
+
+```powershell
+Import-Module powershell-yaml
+
+PS C:\> $data = @"
+aPhoneNumber: !!str +40123456789
+aPhoneNrWithoutTags: +40123456789
+"@
+PS C:\> ConvertFrom-Yaml $data
+
+Name                           Value
+----                           -----
+aPhoneNrWithoutTags            40123456789
+aPhoneNumber                   +40123456789
+
+PS C:\> $obj = ConvertFrom-Yaml $data
+PS C:\> $obj.aPhoneNumber.GetType()
+
+IsPublic IsSerial Name                                     BaseType
+-------- -------- ----                                     --------
+True     True     String                                   System.Object
+
+PS C:\> $obj.aPhoneNrWithoutTags.GetType()
+
+IsPublic IsSerial Name                                     BaseType
+-------- -------- ----                                     --------
+True     True     Int64                                    System.ValueType
+```
+
+As you can see, the phone number without tags was cast to ```Int64```. This is most likely not the desired result and a case where tags should be used.
+
+## Running the tests
 
 Before running the associated unit tests; please make sure you have
 [Pester](https://github.com/pester/pester) installed, as it is the testing
@@ -216,7 +250,7 @@ framework of choice.
 After Pester is up and running, the tests may be ran by simply entering the
 tests directory and running `Invoke-Pester`:
 
-```
+```powershell
 PS C:\> Install-Module Pester
 PS C:\> Install-Module Assert
 PS C:\> git clone https://github.com/cloudbase/powershell-yaml.git $HOME\powershell-yaml
