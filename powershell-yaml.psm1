@@ -24,6 +24,7 @@ enum SerializationOptions {
 }
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $assemblies = Join-Path $here "Load-Assemblies.ps1"
+$infinityRegex = [regex]::new('^[-+]?(\.inf|\.Inf|\.INF)$', "Compiled, CultureInvariant");
 
 if (Test-Path $assemblies) {
     . $here\Load-Assemblies.ps1
@@ -73,21 +74,49 @@ function Convert-ValueToProperType {
                 }
                 "tag:yaml.org,2002:bool" {
                     $parsedValue = $false
-                    if (![boolean]::TryParse($Node, [ref]$parsedValue)) {
+                    if (![boolean]::TryParse($Node.Value, [ref]$parsedValue)) {
                         Throw ("failed to parse scalar {0} as boolean" -f $Node)
                     }
                     return $parsedValue
                 }
                 "tag:yaml.org,2002:int" {
                     $parsedValue = 0
-                    if (![long]::TryParse($Node, [Globalization.NumberStyles]::Any, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)) {
-                        Throw ("failed to parse scalar {0} as long" -f $Node)
+                    if ($node.Value.Length -gt 2) {
+                        switch ($node.Value.Substring(0, 2)) {
+                            "0o" {
+                                $parsedValue = [Convert]::ToInt64($Node.Value.Substring(2), 8)
+                            }
+                            "0x" {
+                                $parsedValue = [Convert]::ToInt64($Node.Value.Substring(2), 16)
+                            }
+                            default {
+                                if (![long]::TryParse($Node.Value, [Globalization.NumberStyles]::Any, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)) {
+                                    Throw ("failed to parse scalar {0} as long" -f $Node)
+                                }
+                            }
+                        }
+                    } else {
+                        if (![long]::TryParse($Node.Value, [Globalization.NumberStyles]::Any, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)) {
+                            Throw ("failed to parse scalar {0} as long" -f $Node)
+                        }
                     }
                     return $parsedValue
                 }
                 "tag:yaml.org,2002:float" {
                     $parsedValue = 0.0
-                    if (![double]::TryParse($Node, [Globalization.NumberStyles]::Any, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)) {
+                    if ($infinityRegex.Matches($Node.Value)) {
+                        $prefix = $Node.Value.Substring(0, 1)
+                        switch ($prefix) {
+                            "-" {
+                                return [double]::NegativeInfinity
+                            }
+                            default {
+                                # Prefix is either missing or is a +
+                                return [double]::PositiveInfinity
+                            }
+                        }
+                    }
+                    if (![double]::TryParse($Node.Value, [Globalization.NumberStyles]::Any, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)) {
                         Throw ("failed to parse scalar {0} as double" -f $Node)
                     }
                     return $parsedValue
@@ -304,7 +333,7 @@ using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.EventEmitters;
 public class StringQuotingEmitter: ChainedEventEmitter {
     // Patterns from https://yaml.org/spec/1.2/spec.html#id2804356
-    private static Regex quotedRegex = new Regex(@`"^(\~|null|true|false|-?(0|[0-9][0-9]*)(\.[0-9]*)?([eE][-+]?[0-9]+)?)?$`", RegexOptions.Compiled);
+    private static Regex quotedRegex = new Regex(@`"^(\~|null|true|false|on|off|yes|no|y|n|[-+]?(\.[0-9]+|[0-9]+(\.[0-9]*)?)([eE][-+]?[0-9]+)?|[-+]?(\.inf))?$`", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     public StringQuotingEmitter(IEventEmitter next): base(next) {}
 
     public override void Emit(ScalarEventInfo eventInfo, IEmitter emitter) {
