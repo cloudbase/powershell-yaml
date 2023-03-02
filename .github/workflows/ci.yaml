@@ -1,0 +1,34 @@
+name: powershell-yaml
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  tests:
+    name: Pester tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-20.04, macos-12, windows-2019, windows-2022]
+    
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install modules
+        shell: pwsh
+        run: |
+          Set-PSRepository PSGallery -InstallationPolicy Trusted
+          Install-Module Assert -ErrorAction Stop
+          Install-Module Pester -ErrorAction Stop
+      - name: Run tests
+        shell: pwsh
+        run: |
+          Invoke-Pester
