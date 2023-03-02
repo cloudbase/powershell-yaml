@@ -124,7 +124,9 @@ function Convert-ValueToProperType {
                 "tag:yaml.org,2002:timestamp" {
                     # From the YAML spec: http://yaml.org/type/timestamp.html
                     [DateTime]$parsedValue = [DateTime]::MinValue
-                    if(![DateTime]::TryParse($Node.Value,[ref]$parsedValue)) {
+                    $ts = [DateTime]::SpecifyKind($Node.Value, [System.DateTimeKind]::Utc)
+                    $tss = $ts.ToString("o")
+                    if(![datetime]::TryParse($tss, $null, [System.Globalization.DateTimeStyles]::RoundtripKind, [ref] $parsedValue)) {
                         Throw ("failed to parse scalar {0} as DateTime" -f $Node)
                     }
                     return $parsedValue
