@@ -1,4 +1,4 @@
-# Copyright 2016 Cloudbase Solutions Srl
+# Copyright 2016-2023 Cloudbase Solutions Srl
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -37,7 +37,7 @@ Author = 'Gabriel Adrian Samfira','Alessandro Pilotti'
 CompanyName = 'Cloudbase Solutions SRL'
 
 # Copyright statement for this module
-Copyright = '(c) 2016 Cloudbase Solutions SRL. All rights reserved.'
+Copyright = '(c) 2016-2023 Cloudbase Solutions SRL. All rights reserved.'
 
 # Description of the functionality provided by this module
 Description = 'Powershell module for serializing and deserializing YAML'
