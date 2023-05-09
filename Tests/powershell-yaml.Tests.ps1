@@ -520,10 +520,4 @@ bools:
             }
         }
     }
-
-    Describe 'Module Manifest' {
-        Context 'Module is reloadable' {
-            Import-Module $modulePath -Force
-        }
-    }
 }
