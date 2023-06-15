@@ -217,7 +217,7 @@ function Convert-HashtableToDictionary {
         [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
         [hashtable]$Data
     )
-    foreach($i in $($data.Keys)) {
+    foreach($i in $($data.PSBase.Keys)) {
         $Data[$i] = Convert-PSObjectToGenericObject $Data[$i]
     }
     return $Data
@@ -228,7 +228,7 @@ function Convert-OrderedHashtableToDictionary {
         [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
         [System.Collections.Specialized.OrderedDictionary] $Data
     )
-    foreach ($i in $($data.Keys)) {
+    foreach ($i in $($data.PSBase.Keys)) {
         $Data[$i] = Convert-PSObjectToGenericObject $Data[$i]
     }
     return $Data
