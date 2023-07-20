@@ -13,6 +13,7 @@
 #    under the License.
 #
 
+[Flags()]
 enum SerializationOptions {
     None = 0
     Roundtrip = 1
