@@ -43,10 +43,7 @@ Copyright = '(c) 2016-2023 Cloudbase Solutions SRL. All rights reserved.'
 Description = 'Powershell module for serializing and deserializing YAML'
 
 # Minimum version of the Windows PowerShell engine required by this module
-PowerShellVersion = '5.0'
-
-# Script files (.ps1) that are run in the caller's environment prior to importing this module.
-ScriptsToProcess = @("Load-Assemblies.ps1")
+PowerShellVersion = '6.0'
 
 # Functions to export from this module
 FunctionsToExport = "ConvertTo-Yaml","ConvertFrom-Yaml"
