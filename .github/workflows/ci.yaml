@@ -13,7 +13,27 @@ concurrency:
 permissions: {}
 
 jobs:
-  tests:
+  powershell_tests:
+    name: Pester tests on powershell.exe
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-2019, windows-2022]
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install modules
+        shell: powershell
+        run: |
+          Set-PSRepository PSGallery -InstallationPolicy Trusted
+          Install-Module Assert -ErrorAction Stop -MaximumVersion 0.9.6 -Force
+          Install-Module Pester -ErrorAction Stop -Force
+      - name: Run tests
+        shell: powershell
+        run: |
+          Invoke-Pester
+
+  pwsh_tests:
     name: Pester tests
     runs-on: ${{ matrix.os }}
     strategy:
