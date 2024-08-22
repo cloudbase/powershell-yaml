@@ -1,4 +1,4 @@
-﻿# Copyright 2016-2023 Cloudbase Solutions Srl
+# Copyright 2016-2023 Cloudbase Solutions Srl
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -518,6 +518,44 @@ bools:
                 $result = ConvertTo-Yaml $value
                 $result | Should -Be "key: """"$([Environment]::NewLine)"
             }
+        }
+    }
+
+    Describe 'StringQuotingEmitter' {
+        BeforeAll {
+            $oldYamlPkgUrl = 'https://www.nuget.org/api/v2/package/YamlDotNet/11.2.1'
+            $pkgPath = Join-Path -Path $TestDrive -ChildPath 'YamlDotNet-11.2.1.nupkg'
+            $oldYamlPkgDirPath = Join-Path -Path $TestDrive -ChildPath 'YamlDotNet-11.2.1'
+            $ProgressPreference = 'SilentlyContinue'
+            Invoke-WebRequest -Uri $oldYamlPkgUrl -UseBasicParsing -OutFile $pkgPath
+            New-Item -Path $oldYamlPkgDirPath -ItemType Directory
+            Add-Type -AssemblyName 'System.IO.Compression.FileSystem'
+            [IO.Compression.ZipFile]::ExtractToDirectory($pkgPath, $oldYamlPkgDirPath)
+        }
+
+        $targetFrameworks = @('net45', 'netstandard1.3')
+        if ($PSVersionTable['PSEdition'] -eq 'Core')
+        {
+            $targetFrameworks = @('netstandard1.3', 'netstandard2.1')
+        }
+
+        It 'can be compiled on import with <_>/YamlDotNet.dll loaded' -ForEach $targetFrameworks {
+            $targetFramework = $_
+            $yamlDotnetAssemblyPath =
+                Join-Path -Path $TestDrive -ChildPath "YamlDotNet-11.2.1\lib\${targetFramework}\YamlDotNet.dll" -Resolve
+            $modulePath = Join-Path -Path $PSScriptRoot -ChildPath '..\powershell-yaml.psd1' -Resolve
+
+            {
+                # Do this in the background because YamlDotNet.dll is already loaded in this session and the way we
+                # found to reproduce this issue is by loading YamlDotNet 11.2.1 then importing powershell-yaml.
+                Start-Job {
+                    $yamlDotnetAssemblyPath = $using:yamlDotnetAssemblyPath
+                    $modulePath = $using:modulePath
+
+                    Add-Type -Path $yamlDotnetAssemblyPath
+                    Import-Module $modulePath
+                } | Receive-Job -Wait -AutoRemoveJob -ErrorAction Stop
+            } | Should -Not -Throw
         }
     }
 }

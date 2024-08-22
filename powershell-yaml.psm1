@@ -376,6 +376,7 @@ if (!([System.Management.Automation.PSTypeName]'StringQuotingEmitter').Type) {
         $referenceList += [IO.Directory]::GetFiles([IO.Path]::Combine($PSHOME, 'ref'), 'netstandard.dll', [IO.SearchOption]::TopDirectoryOnly)
         Add-Type -TypeDefinition $stringQuotingEmitterSource -ReferencedAssemblies $referenceList -Language CSharp -CompilerOptions "-nowarn:1701"
     } else {
+        $referenceList += 'System.Runtime.dll'
         Add-Type -TypeDefinition $stringQuotingEmitterSource -ReferencedAssemblies $referenceList -Language CSharp
     }
 }
