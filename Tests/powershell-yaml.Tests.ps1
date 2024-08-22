@@ -16,7 +16,7 @@
 # pinning this module to an exact version, 
 # because the options api will be merged with Assert-Equivalent
 # before release of 1.0.0
-Import-Module Assert -RequiredVersion 0.9.5
+Import-Module Assert -Version 0.9.6
 
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $moduleHome = Split-Path -Parent $here
