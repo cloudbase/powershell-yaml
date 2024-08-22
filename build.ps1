@@ -55,6 +55,15 @@ function Invoke-LoadInContext {
     return @{ "yaml"= $assemblies }
 }
 
+function Invoke-LoadInGlobalContext {
+    param(
+        [string]$assemblyPath
+    )
+    $assemblies = [Reflection.Assembly]::LoadFrom($assemblyPath)
+    return @{ "yaml"= $assemblies }
+}
+
+
 function Invoke-LoadAssembly {
     $libDir = Join-Path $here "lib"
     $assemblies = @{
@@ -69,17 +78,16 @@ function Invoke-LoadAssembly {
         } elseif ($PSVersionTable.PSVersion.Major -gt 5.1) {
             return (Invoke-LoadInContext -assemblyPath $assemblies["net45"] -loadContextName "powershellyaml")
         } elseif ($PSVersionTable.PSVersion.Major -ge 4) {
-            return [Reflection.Assembly]::LoadFrom($assemblies["net45"])
+            return (Invoke-LoadInGlobalContext $assemblies["net45"])
         } else {
-            return [Reflection.Assembly]::LoadFrom($assemblies["net35"])
+            return (Invoke-LoadInGlobalContext $assemblies["net35"])
         }
     } else { # Powershell 4.0 and lower do not know "PSEdition" yet
-        return [Reflection.Assembly]::LoadFrom($assemblies["net35"])
+        return (Invoke-LoadInGlobalContext $assemblies["net35"])
     }
 }
 
 $assemblies = Invoke-LoadAssembly
-
 $yamlDotNetAssembly = $assemblies["yaml"]
 
 
@@ -87,7 +95,10 @@ if (!([System.Management.Automation.PSTypeName]'StringQuotingEmitter').Type) {
     $referenceList = @($yamlDotNetAssembly.Location,[Text.RegularExpressions.Regex].Assembly.Location)
     if ($PSVersionTable.PSEdition -eq "Core") {
         $referenceList += [IO.Directory]::GetFiles([IO.Path]::Combine($PSHOME, 'ref'), 'netstandard.dll', [IO.SearchOption]::TopDirectoryOnly)
+        $destinations = @("lib/netstandard2.1")
     } else {
+        $referenceList += 'System.Runtime.dll'
+        $destinations = @("lib/net45", "lib/net35")
     }
 }
 
@@ -97,6 +108,10 @@ foreach ($target in $destinations) {
     $targetPath = Join-Path $here $target
     $file = Join-Path $targetPath "StringQuotingEmitter.dll"
     if (!(Test-Path $file)) {
-        Add-Type -TypeDefinition $source -ReferencedAssemblies $referenceList -Language CSharp -CompilerOptions "-nowarn:1701" -OutputAssembly $file
+        if ($PSVersionTable.PSEdition -eq "Core") {
+            Add-Type -TypeDefinition $source -ReferencedAssemblies $referenceList -Language CSharp -CompilerOptions "-nowarn:1701" -OutputAssembly $file
+        } else {
+            Add-Type -TypeDefinition $source -ReferencedAssemblies $referenceList -Language CSharp -OutputAssembly $file
+        }
     }
 }
