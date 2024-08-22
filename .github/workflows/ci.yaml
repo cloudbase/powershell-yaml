@@ -26,8 +26,8 @@ jobs:
         shell: pwsh
         run: |
           Set-PSRepository PSGallery -InstallationPolicy Trusted
-          Install-Module Assert -ErrorAction Stop
-          Install-Module Pester -ErrorAction Stop
+          Install-Module Assert -ErrorAction Stop -MaximumVersion 0.9.6 -Force
+          Install-Module Pester -ErrorAction Stop -Force
       - name: Run tests
         shell: pwsh
         run: |
