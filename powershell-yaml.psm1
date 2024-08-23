@@ -24,12 +24,64 @@ enum SerializationOptions {
     WithIndentedSequences = 32
 }
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
-$assemblies = Join-Path $here "Load-Assemblies.ps1"
 $infinityRegex = [regex]::new('^[-+]?(\.inf|\.Inf|\.INF)$', "Compiled, CultureInvariant");
 
-if (Test-Path $assemblies) {
-    . $here\Load-Assemblies.ps1
+function Invoke-LoadInContext {
+    param(
+        [string]$assemblyPath,
+        [string]$loadContextName
+    )
+
+    $loadContext = [System.Runtime.Loader.AssemblyLoadContext]::New($loadContextName, $true)
+    $assemblies = $loadContext.LoadFromAssemblyPath($assemblyPath)
+    $basePath = Split-Path -Parent $assemblyPath
+    $quoted = Join-Path $basePath "StringQuotingEmitter.dll"
+    $quotedAssembly = $loadContext.LoadFromAssemblyPath($quoted)
+
+    return @{ "yaml"= $assemblies; "quoted" = $quotedAssembly }
 }
+
+function Invoke-LoadInGlobalContext {
+    param(
+        [string]$assemblyPath
+    )
+
+    $assemblies = [Reflection.Assembly]::LoadFrom($assemblyPath)
+    $basePath = Split-Path -Parent $assemblyPath
+    $quoted = Join-Path $basePath "StringQuotingEmitter.dll"
+    $quotedAssembly = [Reflection.Assembly]::LoadFrom($quoted)
+
+    return @{ "yaml"= $assemblies; "quoted" = $quotedAssembly }
+}
+
+function Invoke-LoadAssembly {
+    $libDir = Join-Path $here "lib"
+    $assemblies = @{
+        "core" = Join-Path $libDir "netstandard2.1\YamlDotNet.dll";
+        "net45" = Join-Path $libDir "net45\YamlDotNet.dll";
+        "net35" = Join-Path $libDir "net35\YamlDotNet.dll";
+    }
+
+    if ($PSVersionTable.Keys -contains "PSEdition") {
+        if ($PSVersionTable.PSEdition -eq "Core") {
+            return (Invoke-LoadInContext -assemblyPath $assemblies["core"] -loadContextName "powershellyaml")
+        } elseif ($PSVersionTable.PSVersion.Major -gt 5.1) {
+            return (Invoke-LoadInContext -assemblyPath $assemblies["net45"] -loadContextName "powershellyaml")
+        } elseif ($PSVersionTable.PSVersion.Major -ge 4) {
+            return Invoke-LoadInGlobalContext $assemblies["net45"]
+        } else {
+            return Invoke-LoadInGlobalContext $assemblies["net35"]
+        }
+    } else {
+        # Powershell 4.0 and lower do not know "PSEdition" yet
+        return Invoke-LoadInGlobalContext $assemblies["net35"]
+    }
+}
+
+$assemblies = Invoke-LoadAssembly
+
+$yamlDotNetAssembly = $assemblies["yaml"]
+$stringQuotedAssembly = $assemblies["quoted"]
 
 function Get-YamlDocuments {
     [CmdletBinding()]
@@ -40,13 +92,15 @@ function Get-YamlDocuments {
     )
     PROCESS {
         $stringReader = new-object System.IO.StringReader($Yaml)
-        $parser = New-Object "YamlDotNet.Core.Parser" $stringReader
+        $parserType = $yamlDotNetAssembly.GetType("YamlDotNet.Core.Parser")
+        $parser = $parserType::new($stringReader)
         if($UseMergingParser) {
-            $parser = New-Object "YamlDotNet.Core.MergingParser" $parser
+            $parserType = $yamlDotNetAssembly.GetType("YamlDotNet.Core.MergingParser")
+            $parser = $parserType::new($parser)
         }
 
-        $yamlStream = New-Object "YamlDotNet.RepresentationModel.YamlStream"
-        $yamlStream.Load([YamlDotNet.Core.IParser] $parser)
+        $yamlStream = $yamlDotNetAssembly.GetType("YamlDotNet.RepresentationModel.YamlStream")::new()
+        $yamlStream.Load($parser)
 
         $stringReader.Close()
 
@@ -163,7 +217,7 @@ function Convert-YamlMappingToHashtable {
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
-        [YamlDotNet.RepresentationModel.YamlMappingNode]$Node,
+        $Node,
         [switch] $Ordered
     )
     PROCESS {
@@ -179,7 +233,7 @@ function Convert-YamlSequenceToArray {
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
-        [YamlDotNet.RepresentationModel.YamlSequenceNode]$Node,
+        $Node,
         [switch]$Ordered
     )
     PROCESS {
@@ -327,66 +381,12 @@ function ConvertFrom-Yaml {
     }
 }
 
-$stringQuotingEmitterSource = @"
-using System;
-using System.Text.RegularExpressions;
-using YamlDotNet;
-using YamlDotNet.Core;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.EventEmitters;
-public class StringQuotingEmitter: ChainedEventEmitter {
-    // Patterns from https://yaml.org/spec/1.2/spec.html#id2804356
-    private static Regex quotedRegex = new Regex(@`"^(\~|null|true|false|on|off|yes|no|y|n|[-+]?(\.[0-9]+|[0-9]+(\.[0-9]*)?)([eE][-+]?[0-9]+)?|[-+]?(\.inf))?$`", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    public StringQuotingEmitter(IEventEmitter next): base(next) {}
-
-    public override void Emit(ScalarEventInfo eventInfo, IEmitter emitter) {
-        var typeCode = eventInfo.Source.Value != null
-        ? Type.GetTypeCode(eventInfo.Source.Type)
-        : TypeCode.Empty;
-
-        switch (typeCode) {
-            case TypeCode.Char:
-                if (Char.IsDigit((char)eventInfo.Source.Value)) {
-                    eventInfo.Style = ScalarStyle.DoubleQuoted;
-                }
-                break;
-            case TypeCode.String:
-                var val = eventInfo.Source.Value.ToString();
-                if (quotedRegex.IsMatch(val))
-                {
-                    eventInfo.Style = ScalarStyle.DoubleQuoted;
-                } else if (val.IndexOf('\n') > -1) {
-                    eventInfo.Style = ScalarStyle.Literal;
-                }
-                break;
-        }
-
-        base.Emit(eventInfo, emitter);
-    }
-
-    public static SerializerBuilder Add(SerializerBuilder builder) {
-        return builder.WithEventEmitter(next => new StringQuotingEmitter(next));
-    }
-}
-"@
-
-if (!([System.Management.Automation.PSTypeName]'StringQuotingEmitter').Type) {
-    $referenceList = @([YamlDotNet.Serialization.Serializer].Assembly.Location,[Text.RegularExpressions.Regex].Assembly.Location)
-    if ($PSVersionTable.PSEdition -eq "Core") {
-        $referenceList += [IO.Directory]::GetFiles([IO.Path]::Combine($PSHOME, 'ref'), 'netstandard.dll', [IO.SearchOption]::TopDirectoryOnly)
-        Add-Type -TypeDefinition $stringQuotingEmitterSource -ReferencedAssemblies $referenceList -Language CSharp -CompilerOptions "-nowarn:1701"
-    } else {
-        $referenceList += 'System.Runtime.dll'
-        Add-Type -TypeDefinition $stringQuotingEmitterSource -ReferencedAssemblies $referenceList -Language CSharp
-    }
-}
-
 function Get-Serializer {
     Param(
         [Parameter(Mandatory=$true)][SerializationOptions]$Options
     )
     
-    $builder = New-Object "YamlDotNet.Serialization.SerializerBuilder"
+    $builder = $yamlDotNetAssembly.GetType("YamlDotNet.Serialization.SerializerBuilder")::new()
     
     if ($Options.HasFlag([SerializationOptions]::Roundtrip)) {
         $builder = $builder.EnsureRoundtrip()
@@ -401,12 +401,14 @@ function Get-Serializer {
         $builder = $builder.JsonCompatible()
     }
     if ($Options.HasFlag([SerializationOptions]::DefaultToStaticType)) {
-        $builder = $builder.WithTypeResolver((New-Object "YamlDotNet.Serialization.TypeResolvers.StaticTypeResolver"))
+        $resolver = $yamlDotNetAssembly.GetType("YamlDotNet.Serialization.TypeResolvers.StaticTypeResolver")::new()
+        $builder = $builder.WithTypeResolver($resolver)
     }
     if ($Options.HasFlag([SerializationOptions]::WithIndentedSequences)) {
         $builder = $builder.WithIndentedSequences()
     }
-    $builder = [StringQuotingEmitter]::Add($builder)
+    $stringQuoted = $stringQuotedAssembly.GetType("StringQuotingEmitter")
+    $builder = $stringQuoted::Add($builder)
     return $builder.Build()
 }
 

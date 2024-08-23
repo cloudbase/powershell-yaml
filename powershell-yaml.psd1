@@ -45,9 +45,6 @@ Description = 'Powershell module for serializing and deserializing YAML'
 # Minimum version of the Windows PowerShell engine required by this module
 PowerShellVersion = '5.0'
 
-# Script files (.ps1) that are run in the caller's environment prior to importing this module.
-ScriptsToProcess = @("Load-Assemblies.ps1")
-
 # Functions to export from this module
 FunctionsToExport = "ConvertTo-Yaml","ConvertFrom-Yaml"
 
