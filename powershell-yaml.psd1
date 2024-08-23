@@ -1,4 +1,4 @@
-# Copyright 2016-2023 Cloudbase Solutions Srl
+# Copyright 2016-2024 Cloudbase Solutions Srl
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -25,7 +25,13 @@
 RootModule = 'powershell-yaml.psm1'
 
 # Version number of this module.
-ModuleVersion = '0.4.7'
+ModuleVersion = '0.4.8'
+
+PrivateData = @{
+    PSData = @{
+        Prerelease = 'rc1'
+    }
+}
 
 # ID used to uniquely identify this module
 GUID = '6a75a662-7f53-425a-9777-ee61284407da'
@@ -37,7 +43,7 @@ Author = 'Gabriel Adrian Samfira','Alessandro Pilotti'
 CompanyName = 'Cloudbase Solutions SRL'
 
 # Copyright statement for this module
-Copyright = '(c) 2016-2023 Cloudbase Solutions SRL. All rights reserved.'
+Copyright = '(c) 2016-2024 Cloudbase Solutions SRL. All rights reserved.'
 
 # Description of the functionality provided by this module
 Description = 'Powershell module for serializing and deserializing YAML'
