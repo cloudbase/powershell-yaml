@@ -521,6 +521,84 @@ bools:
         }
     }
 
+    Describe 'Numbers are parsed as the smallest type possible' {
+        BeforeAll {
+            $global:value = @'
+bigInt: 99999999999999999999999999999999999
+int32: 2147483647
+int64: 9223372036854775807
+'@
+        }
+
+        It 'Should be a BigInt' {
+            $result = ConvertFrom-Yaml -Yaml $value
+            $result.bigInt | Should -BeOfType System.Numerics.BigInteger
+        }
+
+        It 'Should be of proper type and value' {
+            $result = ConvertFrom-Yaml -Yaml $value
+            $result.bigInt | Should -Be ([System.Numerics.BigInteger]::Parse("99999999999999999999999999999999999"))
+            $result.int32 | Should -Be ([int32]2147483647)
+            $result.int64 | Should -Be ([int64]9223372036854775807)
+        }
+    }
+
+    Describe 'PSCustomObjects' {
+        Context 'Classes with PSCustomObjects' {
+            It 'Should serialise as a hash' {
+                $nestedPsO = [PSCustomObject]@{
+                    Nested = 'NestedValue'
+                }
+                $PsO = [PSCustomObject]@{
+                    Name = 'Value'
+                    Nested = $nestedPsO
+                }
+
+                class TestClass {
+                    [PSCustomObject]$PsO
+                    [string]$Ok
+                }
+                $Class = [TestClass]@{
+                    PsO = $PsO
+                    Ok  = 'aye'
+                }
+                $asYaml = ConvertTo-Yaml $Class
+                $result = ConvertFrom-Yaml -Yaml $asYaml -Ordered
+                [System.Collections.Specialized.OrderedDictionary]$ret = [System.Collections.Specialized.OrderedDictionary]::new()
+                $ret["PsO"] = [System.Collections.Specialized.OrderedDictionary]::new()
+                $ret["PsO"]["Name"] = "Value"
+                $ret["PsO"]["Nested"] = [System.Collections.Specialized.OrderedDictionary]::new()
+                $ret["PsO"]["Nested"]["Nested"] = "NestedValue"
+                $ret["Ok"] = "aye"
+                Assert-Equivalent -Options $compareStrictly -Expected $ret -Actual $result
+            }
+        }
+
+        Context 'PSCustomObject with a single property' {
+            BeforeAll {
+                $global:value = [PSCustomObject]@{key="value"}
+            }
+            It 'Should serialise as a hash' {
+                $result = ConvertTo-Yaml $value
+                $result | Should -Be "key: value$([Environment]::NewLine)"
+            }
+        }
+        Context 'PSCustomObject with multiple properties' {
+            BeforeAll {
+                $global:value = [PSCustomObject]@{key1="value1"; key2="value2"}
+            }
+            It 'Should serialise as a hash' {
+                $result = ConvertTo-Yaml $value
+                $result | Should -Be "key1: value1$([Environment]::NewLine)key2: value2$([Environment]::NewLine)"
+            }
+            It 'Should deserialise as a hash' {
+                $asYaml = ConvertTo-Yaml $value
+                $result = ConvertFrom-Yaml -Yaml $asYaml -Ordered
+                Assert-Equivalent -Options $compareStrictly -Expected @{key1="value1"; key2="value2"} -Actual ([hashtable]$result)
+            }
+        }
+    }
+
     Describe 'StringQuotingEmitter' {
         BeforeAll {
             $oldYamlPkgUrl = 'https://www.nuget.org/api/v2/package/YamlDotNet/11.2.1'

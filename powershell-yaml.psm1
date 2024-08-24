@@ -58,7 +58,7 @@ function Invoke-LoadAssembly {
     $libDir = Join-Path $here "lib"
     $assemblies = @{
         "core" = Join-Path $libDir "netstandard2.1\YamlDotNet.dll";
-        "net45" = Join-Path $libDir "net45\YamlDotNet.dll";
+        "net47" = Join-Path $libDir "net47\YamlDotNet.dll";
         "net35" = Join-Path $libDir "net35\YamlDotNet.dll";
     }
 
@@ -66,15 +66,14 @@ function Invoke-LoadAssembly {
         if ($PSVersionTable.PSEdition -eq "Core") {
             return (Invoke-LoadInContext -assemblyPath $assemblies["core"] -loadContextName "powershellyaml")
         } elseif ($PSVersionTable.PSVersion.Major -gt 5.1) {
-            return (Invoke-LoadInContext -assemblyPath $assemblies["net45"] -loadContextName "powershellyaml")
+            return (Invoke-LoadInContext -assemblyPath $assemblies["net47"] -loadContextName "powershellyaml")
         } elseif ($PSVersionTable.PSVersion.Major -ge 4) {
-            return Invoke-LoadInGlobalContext $assemblies["net45"]
+            return Invoke-LoadInGlobalContext $assemblies["net47"]
         } else {
-            return Invoke-LoadInGlobalContext $assemblies["net35"]
+            return Invoke-LoadInGlobalContext $assemblies["net45"]
         }
     } else {
-        # Powershell 4.0 and lower do not know "PSEdition" yet
-        return Invoke-LoadInGlobalContext $assemblies["net35"]
+        return Invoke-LoadInGlobalContext $assemblies["net45"]
     }
 }
 
@@ -118,7 +117,7 @@ function Convert-ValueToProperType {
         if (!($Node.Value -is [string])) {
             return $Node
         }
-        
+        $intTypes = @([int], [long])
         if ([string]::IsNullOrEmpty($Node.Tag) -eq $false) {
             switch($Node.Tag) {
                 "tag:yaml.org,2002:str" {
@@ -145,14 +144,20 @@ function Convert-ValueToProperType {
                                 $parsedValue = [Convert]::ToInt64($Node.Value.Substring(2), 16)
                             }
                             default {
-                                if (![long]::TryParse($Node.Value, [Globalization.NumberStyles]::Any, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)) {
+                                if (![System.Numerics.BigInteger]::TryParse($Node.Value, [Globalization.NumberStyles]::Any, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)) {
                                     Throw ("failed to parse scalar {0} as long" -f $Node)
                                 }
                             }
                         }
                     } else {
-                        if (![long]::TryParse($Node.Value, [Globalization.NumberStyles]::Any, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)) {
+                        if (![System.Numerics.BigInteger]::TryParse($Node.Value, [Globalization.NumberStyles]::Any, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)) {
                             Throw ("failed to parse scalar {0} as long" -f $Node)
+                        }
+                    }
+                    foreach ($i in $intTypes) {
+                        $asIntType = $parsedValue -as $i
+                        if($asIntType) {
+                            return $asIntType
                         }
                     }
                     return $parsedValue
@@ -189,16 +194,30 @@ function Convert-ValueToProperType {
             }
         }
 
-        if ($Node.Style -eq 'Plain')
-        {
-            $types = @([int], [long], [double], [boolean], [decimal])
+        if ($Node.Style -eq 'Plain') {
+            $parsedValue = New-Object -TypeName ([Boolean].FullName)
+            $result = [boolean]::TryParse($Node,[ref]$parsedValue)
+            if( $result ) {
+                return $parsedValue
+            }
+
+            $parsedValue = New-Object -TypeName ([System.Numerics.BigInteger].FullName)
+            $result = [System.Numerics.BigInteger]::TryParse($Node, [Globalization.NumberStyles]::Any, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)
+            if($result) {
+                $types = @([int], [long])
+                foreach($i in $types){
+                    $asType = $parsedValue -as $i
+                    if($asType) {
+                        return $asType
+                    }
+                }
+                return $parsedValue
+            }
+
+            $types = @([double], [decimal])
             foreach($i in $types){
                 $parsedValue = New-Object -TypeName $i.FullName
-                if ($i.IsAssignableFrom([boolean])){
-                    $result = $i::TryParse($Node,[ref]$parsedValue) 
-                } else {
-                    $result = $i::TryParse($Node, [Globalization.NumberStyles]::Any, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)
-                }
+                $result = $i::TryParse($Node, [Globalization.NumberStyles]::Any, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)
                 if( $result ) {
                     return $parsedValue
                 }
@@ -301,18 +320,6 @@ function Convert-ListToGenericList {
     return ,$ret
 }
 
-function Convert-PSCustomObjectToDictionary {
-    Param(
-        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
-        [PSCustomObject]$Data
-    )
-    $ret = [System.Collections.Generic.Dictionary[string,object]](New-Object 'System.Collections.Generic.Dictionary[string,object]')
-    foreach ($i in $Data.psobject.properties) {
-        $ret[$i.Name] = Convert-PSObjectToGenericObject $i.Value
-    }
-    return $ret
-}
-
 function Convert-PSObjectToGenericObject {
     Param(
         [Parameter(Mandatory=$false,ValueFromPipeline=$true)]
@@ -324,20 +331,14 @@ function Convert-PSObjectToGenericObject {
     }
 
     $dataType = $data.GetType()
-    if ($data -isnot [System.Object]) {
-        return $data -as $dataType
-    }
-
-    if ($dataType.FullName -eq "System.Management.Automation.PSCustomObject") {
-        return Convert-PSCustomObjectToDictionary $data
-    } elseif (([System.Collections.Specialized.OrderedDictionary].IsAssignableFrom($dataType))){
+    if (([System.Collections.Specialized.OrderedDictionary].IsAssignableFrom($dataType))){
         return Convert-OrderedHashtableToDictionary $data
     } elseif (([System.Collections.IDictionary].IsAssignableFrom($dataType))){
         return Convert-HashtableToDictionary $data
     } elseif (([System.Collections.IList].IsAssignableFrom($dataType))) {
         return Convert-ListToGenericList $data
     }
-    return $data -as $dataType
+    return $data
 }
 
 function ConvertFrom-Yaml {
