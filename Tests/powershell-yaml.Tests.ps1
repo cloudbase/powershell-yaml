@@ -54,6 +54,11 @@ iAmEmptyString: ""
 "@
             }
 
+            It "should not serialize null value when -Options OmitNullValues is set" {
+                $toYaml = ConvertTo-Yaml $nullAndString -Options OmitNullValues
+                $toYaml | Should -Be "iAmEmptyString: """"$([Environment]::NewLine)"
+            }
+
             It "should preserve nulls and empty strings from PowerShell" {
                 $toYaml = ConvertTo-Yaml $nullAndString
                 $backFromYaml = ConvertFrom-Yaml $toYaml
@@ -552,6 +557,7 @@ int64: 9223372036854775807
                 $PsO = [PSCustomObject]@{
                     Name = 'Value'
                     Nested = $nestedPsO
+                    NullValue = $null
                 }
 
                 class TestClass {
@@ -569,8 +575,35 @@ int64: 9223372036854775807
                 $ret["PsO"]["Name"] = "Value"
                 $ret["PsO"]["Nested"] = [System.Collections.Specialized.OrderedDictionary]::new()
                 $ret["PsO"]["Nested"]["Nested"] = "NestedValue"
+                $ret["PsO"]["NullValue"] = $null
                 $ret["Ok"] = "aye"
                 Assert-Equivalent -Options $compareStrictly -Expected $ret -Actual $result
+            }
+        }
+
+        Context 'PSObject with null value is skipped when -Options OmitNullValues' {
+            BeforeAll {
+                $global:value = [PSCustomObject]@{
+                    key1 = "value1"
+                    key2 = $null
+                }
+            }
+            It 'Should serialise as a hash with only the non-null value' {
+                $result = ConvertTo-Yaml $value -Options OmitNullValues
+                $result | Should -Be "key1: value1$([Environment]::NewLine)"
+            }
+        }
+
+        Context 'PSObject with null value is included when -Options OmitNullValues is not set' {
+            BeforeAll {
+                $global:value = [PSCustomObject]@{
+                    key1 = "value1"
+                    key2 = $null
+                }
+            }
+            It 'Should serialise as a hash with the null value' {
+                $result = ConvertTo-Yaml $value
+                $result | Should -Be "key1: value1$([Environment]::NewLine)key2: $null$([Environment]::NewLine)"
             }
         }
 

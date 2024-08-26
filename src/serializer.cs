@@ -8,7 +8,29 @@ using YamlDotNet.Core;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.EventEmitters;
 using YamlDotNet.Core.Events;
+using YamlDotNet.Serialization.ObjectGraphVisitors;
 
+public sealed class NullValueGraphVisitor : ChainedObjectGraphVisitor
+{
+    public NullValueGraphVisitor(IObjectGraphVisitor<IEmitter> nextVisitor)
+        : base(nextVisitor)
+    {
+    }
+
+    public override bool EnterMapping(IPropertyDescriptor key, IObjectDescriptor value, IEmitter context, ObjectSerializer serializer) {
+        if (value.Value == null) {
+            return false;
+        }
+        return base.EnterMapping(key, value, context, serializer);
+    }
+
+    public override bool EnterMapping(IObjectDescriptor key, IObjectDescriptor value, IEmitter context, ObjectSerializer serializer) {
+        if (value.Value == null) {
+            return false;
+        }
+        return base.EnterMapping(key, value, context, serializer);
+    }
+}
 
 public class BigIntegerTypeConverter : IYamlTypeConverter {
     public bool Accepts(Type type) {
@@ -28,6 +50,13 @@ public class BigIntegerTypeConverter : IYamlTypeConverter {
 }
 
 public class PSObjectTypeConverter : IYamlTypeConverter {
+
+    private bool omitNullValues;
+
+    public PSObjectTypeConverter(bool omitNullValues = false) {
+        this.omitNullValues = omitNullValues;
+    }
+
     public bool Accepts(Type type) {
         return typeof(PSObject).IsAssignableFrom(type);
     }
@@ -39,13 +68,21 @@ public class PSObjectTypeConverter : IYamlTypeConverter {
         return deserializedObject;
     }
 
-    public void WriteYaml(IEmitter emitter, object value, Type type, ObjectSerializer serializer) {        
+    public void WriteYaml(IEmitter emitter, object value, Type type, ObjectSerializer serializer) {
         var psObj = (PSObject)value;
 
         emitter.Emit(new MappingStart());
         foreach (var prop in psObj.Properties) {
-            serializer(prop.Name, prop.Name.GetType());
-            serializer(prop.Value, prop.Value.GetType());
+            if (prop.Value == null) {
+                if (this.omitNullValues == true) {
+                    continue;
+                }
+                serializer(prop.Name, prop.Name.GetType());
+                emitter.Emit(new Scalar(AnchorName.Empty, "tag:yaml.org,2002:null", "", ScalarStyle.Plain, true, false));
+            } else {
+                serializer(prop.Name, prop.Name.GetType());
+                serializer(prop.Value, prop.Value.GetType());
+            }
         }
         emitter.Emit(new MappingEnd());
     }
@@ -81,10 +118,15 @@ public class StringQuotingEmitter: ChainedEventEmitter {
         base.Emit(eventInfo, emitter);
     }
     // objectGraphVisitor, w => w.OnTop()
-    public static SerializerBuilder Add(SerializerBuilder builder) {
-        return builder 
+    public static SerializerBuilder Add(SerializerBuilder builder, bool omitNullValues = false) {
+        builder = builder
             .WithEventEmitter(next => new StringQuotingEmitter(next))
             .WithTypeConverter(new BigIntegerTypeConverter())
-            .WithTypeConverter(new PSObjectTypeConverter());
+            .WithTypeConverter(new PSObjectTypeConverter(omitNullValues));
+        if (omitNullValues == true) {
+            builder = builder
+                .WithEmissionPhaseObjectGraphVisitor(args => new NullValueGraphVisitor(args.InnerVisitor));
+        }
+        return builder;
     }
 }

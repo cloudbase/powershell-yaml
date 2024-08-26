@@ -22,6 +22,7 @@ enum SerializationOptions {
     JsonCompatible = 8
     DefaultToStaticType = 16
     WithIndentedSequences = 32
+    OmitNullValues = 64
 }
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $infinityRegex = [regex]::new('^[-+]?(\.inf|\.Inf|\.INF)$', "Compiled, CultureInvariant");
@@ -408,8 +409,12 @@ function Get-Serializer {
     if ($Options.HasFlag([SerializationOptions]::WithIndentedSequences)) {
         $builder = $builder.WithIndentedSequences()
     }
+
+    $omitNull = $Options.HasFlag([SerializationOptions]::OmitNullValues)
+
     $stringQuoted = $stringQuotedAssembly.GetType("StringQuotingEmitter")
-    $builder = $stringQuoted::Add($builder)
+    $builder = $stringQuoted::Add($builder, $omitNull)
+
     return $builder.Build()
 }
 
