@@ -233,17 +233,36 @@ function Convert-ValueToProperType {
     }
 }
 
+function Convert-YamlMappingToPScustomObject {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
+        $Node,
+        [switch] $Ordered,
+        [switch] $AsHashtable
+    )
+    PROCESS {
+        $ret = New-Object -TypeName PSCustomObject
+        foreach($i in $Node.Children.Keys) {
+            $val = Convert-YamlDocumentToPSObject $Node.Children[$i] -Ordered:$Ordered -AsHashtable:$AsHashtable
+            $ret | Add-Member -MemberType NoteProperty -Name $i.Value -Value $val
+        }
+        return $ret
+    }
+}
+
 function Convert-YamlMappingToHashtable {
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
         $Node,
-        [switch] $Ordered
+        [switch] $Ordered,
+        [switch] $AsHashtable
     )
     PROCESS {
         if ($Ordered) { $ret = [ordered]@{} } else { $ret = @{} }
         foreach($i in $Node.Children.Keys) {
-            $ret[$i.Value] = Convert-YamlDocumentToPSObject $Node.Children[$i] -Ordered:$Ordered
+            $ret[$i.Value] = Convert-YamlDocumentToPSObject $Node.Children[$i] -Ordered:$Ordered -AsHashtable:$AsHashtable
         }
         return $ret
     }
@@ -254,12 +273,23 @@ function Convert-YamlSequenceToArray {
     Param(
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
         $Node,
-        [switch]$Ordered
+        [switch]$Ordered,
+        [switch]$AsHashtable
     )
     PROCESS {
-        $ret = [System.Collections.Generic.List[object]](New-Object "System.Collections.Generic.List[object]")
+        if ($AsHashtable) {
+            $ret = [System.Collections.Generic.List[object]](New-Object "System.Collections.Generic.List[object]")
+        } else {
+            $ret = @()
+        }
         foreach($i in $Node.Children){
-            $ret.Add((Convert-YamlDocumentToPSObject $i -Ordered:$Ordered))
+            if ($AsHashtable) {
+                $val = Convert-YamlDocumentToPSObject $i -Ordered:$Ordered -AsHashtable:$AsHashtable
+                $ret.Add($val)
+            } else {
+                $val = Convert-YamlDocumentToPSObject $i -Ordered:$Ordered -AsHashtable:$AsHashtable
+                $ret += $val
+            }
         }
         return ,$ret
     }
@@ -270,15 +300,19 @@ function Convert-YamlDocumentToPSObject {
     Param(
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
         [System.Object]$Node, 
-        [switch]$Ordered
+        [switch]$Ordered,
+        [switch]$AsHashtable=$false
     )
     PROCESS {
         switch($Node.GetType().FullName){
             "YamlDotNet.RepresentationModel.YamlMappingNode"{
-                return Convert-YamlMappingToHashtable $Node -Ordered:$Ordered
+                if ($AsHashtable) {
+                    return Convert-YamlMappingToHashtable $Node -Ordered:$Ordered -AsHashtable:$AsHashtable
+                }
+                return Convert-YamlMappingToPScustomObject $Node -Ordered:$Ordered -AsHashtable:$AsHashtable
             }
             "YamlDotNet.RepresentationModel.YamlSequenceNode" {
-                return Convert-YamlSequenceToArray $Node -Ordered:$Ordered
+                return Convert-YamlSequenceToArray $Node -Ordered:$Ordered -AsHashtable:$AsHashtable
             }
             "YamlDotNet.RepresentationModel.YamlScalarNode" {
                 return (Convert-ValueToProperType $Node)
@@ -349,7 +383,8 @@ function ConvertFrom-Yaml {
         [string]$Yaml,
         [switch]$AllDocuments=$false,
         [switch]$Ordered,
-        [switch]$UseMergingParser=$false
+        [switch]$UseMergingParser=$false,
+        [switch]$AsHashtable=$true
     )
 
     BEGIN {
@@ -370,14 +405,14 @@ function ConvertFrom-Yaml {
             return
         }
         if($documents.Count -eq 1){
-            return Convert-YamlDocumentToPSObject $documents[0].RootNode -Ordered:$Ordered
+            return Convert-YamlDocumentToPSObject $documents[0].RootNode -Ordered:$Ordered -AsHashtable:$AsHashtable
         }
         if(!$AllDocuments) {
-            return Convert-YamlDocumentToPSObject $documents[0].RootNode -Ordered:$Ordered
+            return Convert-YamlDocumentToPSObject $documents[0].RootNode -Ordered:$Ordered -AsHashtable:$AsHashtable
         }
         $ret = @()
         foreach($i in $documents) {
-            $ret += Convert-YamlDocumentToPSObject $i.RootNode -Ordered:$Ordered
+            $ret += Convert-YamlDocumentToPSObject $i.RootNode -Ordered:$Ordered -AsHashtable:$AsHashtable
         }
         return $ret
     }
