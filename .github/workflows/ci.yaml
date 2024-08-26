@@ -17,6 +17,7 @@ jobs:
     name: Pester tests on powershell.exe
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [windows-2019, windows-2022]
 
@@ -27,7 +28,7 @@ jobs:
         run: |
           Set-PSRepository PSGallery -InstallationPolicy Trusted
           Install-Module Assert -ErrorAction Stop -MaximumVersion 0.9.6 -Force
-          Install-Module Pester -ErrorAction Stop -Force
+          Install-Module Pester -ErrorAction Stop -MaximumVersion 5.6.1 -Force
       - name: Run tests
         shell: powershell
         run: |
@@ -37,6 +38,7 @@ jobs:
     name: Pester tests
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-22.04, ubuntu-20.04, macos-12, windows-2019, windows-2022]
     
@@ -47,8 +49,13 @@ jobs:
         run: |
           Set-PSRepository PSGallery -InstallationPolicy Trusted
           Install-Module Assert -ErrorAction Stop -MaximumVersion 0.9.6 -Force
-          Install-Module Pester -ErrorAction Stop -Force
+          Install-Module Pester -ErrorAction Stop -MaximumVersion 5.6.1 -Force
       - name: Run tests
         shell: pwsh
         run: |
+          Remove-Module Pester -ErrorAction SilentlyContinue
+          Import-Module pester -Version 5.6.1
+
+          $PSVersionTable
+
           Invoke-Pester
