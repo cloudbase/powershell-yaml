@@ -29,7 +29,7 @@ ModuleVersion = '0.4.8'
 
 PrivateData = @{
     PSData = @{
-        Prerelease = 'rc1'
+        Prerelease = 'rc2'
     }
 }
 
