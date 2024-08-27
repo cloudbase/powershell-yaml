@@ -669,4 +669,13 @@ int64: 9223372036854775807
             } | Should -Not -Throw
         }
     }
+
+    Describe 'Case insensitive keys in mappings' {
+        It 'should deserialize both keys' {
+            $yaml = '{"a": 1, "A": 2}'
+            $result = ConvertFrom-Yaml -Yaml $yaml
+            $result.a | Should -Be 1
+            $result.A | Should -Be 2
+        }
+    }
 }
