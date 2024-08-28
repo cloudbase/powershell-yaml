@@ -20,8 +20,8 @@ dotnet build --configuration Release $here/src/
 $destinations = @("netstandard2.1", "net47")
 
 foreach ($item in $destinations) {
-    $src = Join-Path $here "src" "bin" "Release" $item "serializer.dll"
-    $dst = Join-Path $here "lib" $item "StringQuotingEmitter.dll"
+    $src = Join-Path $here "src" "bin" "Release" $item "PowerShellYamlSerializer.dll"
+    $dst = Join-Path $here "lib" $item "PowerShellYamlSerializer.dll"
 
     Copy-Item -Force $src $dst
 }

@@ -27,54 +27,56 @@ enum SerializationOptions {
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $infinityRegex = [regex]::new('^[-+]?(\.inf|\.Inf|\.INF)$', "Compiled, CultureInvariant");
 
-function Invoke-LoadInContext {
-    param(
-        [string]$assemblyPath,
-        [string]$loadContextName
-    )
-
-    $loadContext = [System.Runtime.Loader.AssemblyLoadContext]::New($loadContextName, $true)
-    $assemblies = $loadContext.LoadFromAssemblyPath($assemblyPath)
-    $basePath = Split-Path -Parent $assemblyPath
-    $quoted = Join-Path $basePath "StringQuotingEmitter.dll"
-    $quotedAssembly = $loadContext.LoadFromAssemblyPath($quoted)
-
-    return @{ "yaml"= $assemblies; "quoted" = $quotedAssembly }
-}
-
-function Invoke-LoadInGlobalContext {
+function Invoke-LoadFile {
     param(
         [string]$assemblyPath
     )
 
-    $assemblies = [Reflection.Assembly]::LoadFrom($assemblyPath)
-    $basePath = Split-Path -Parent $assemblyPath
-    $quoted = Join-Path $basePath "StringQuotingEmitter.dll"
-    $quotedAssembly = [Reflection.Assembly]::LoadFrom($quoted)
+    $global:powershellYamlDotNetAssemblyPath = Join-Path $assemblyPath "YamlDotNet.dll"
+    $serializerAssemblyPath = Join-Path $assemblyPath "PowerShellYamlSerializer.dll"
+    $yamlAssembly = [Reflection.Assembly]::LoadFile($powershellYamlDotNetAssemblyPath)
+    $serializerAssembly = [Reflection.Assembly]::LoadFile($serializerAssemblyPath)
 
-    return @{ "yaml"= $assemblies; "quoted" = $quotedAssembly }
+    if ($PSVersionTable['PSEdition'] -eq 'Core') {
+        # Register the AssemblyResolve event to load dependencies manually. This seems to be needed only on
+        # PowerShell Core.
+        [System.AppDomain]::CurrentDomain.add_AssemblyResolve({
+            param ($sender, $e)
+            $pth = $powershellYamlDotNetAssemblyPath
+            # Load YamlDotNet if it's requested by PowerShellYamlSerializer. Ignore other requests as they might
+            # originate from other assemblies that are not part of this module and which might have different
+            # versions of the module that they need to load.
+            if ($e.Name -like "*YamlDotNet*" -and $e.RequestingAssembly -like "*PowerShellYamlSerializer*" ) {
+                return [System.Reflection.Assembly]::LoadFile($powershellYamlDotNetAssemblyPath)
+            }
+
+            return $null
+        })
+        # Load the StringQuotingEmitter from PowerShellYamlSerializer to force the resolver handler to fire once.
+        # This will load the YamlDotNet assembly and expand the global variable $powershellYamlDotNetAssemblyPath.
+        # We then remove it to avoid polluting the global scope.
+        # This is an ugly hack I am not happy with.
+        $serializerAssembly.GetType("StringQuotingEmitter") | Out-Null
+    }
+
+    Remove-Variable -Name powershellYamlDotNetAssemblyPath -Scope Global
+    return @{ "yaml"= $yamlAssembly; "quoted" = $serializerAssembly }
 }
 
 function Invoke-LoadAssembly {
     $libDir = Join-Path $here "lib"
     $assemblies = @{
-        "core" = Join-Path $libDir "netstandard2.1\YamlDotNet.dll";
-        "net47" = Join-Path $libDir "net47\YamlDotNet.dll";
-        "net35" = Join-Path $libDir "net35\YamlDotNet.dll";
+        "core" = Join-Path $libDir "netstandard2.1";
+        "net47" = Join-Path $libDir "net47";
     }
 
     if ($PSVersionTable.Keys -contains "PSEdition") {
         if ($PSVersionTable.PSEdition -eq "Core") {
-            return (Invoke-LoadInContext -assemblyPath $assemblies["core"] -loadContextName "powershellyaml")
-        } elseif ($PSVersionTable.PSVersion.Major -gt 5.1) {
-            return (Invoke-LoadInContext -assemblyPath $assemblies["net47"] -loadContextName "powershellyaml")
-        } elseif ($PSVersionTable.PSVersion.Major -ge 4) {
-            return Invoke-LoadInGlobalContext $assemblies["net47"]
-        } else {
-            return Invoke-LoadInGlobalContext $assemblies["net45"]
+            return (Invoke-LoadFile -assemblyPath $assemblies["core"])
         }
+        return (Invoke-LoadFile -assemblyPath $assemblies["net47"])
     } else {
-        return Invoke-LoadInGlobalContext $assemblies["net45"]
+        return (Invoke-LoadFile -assemblyPath $assemblies["net47"])
     }
 }
 
