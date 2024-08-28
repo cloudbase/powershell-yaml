@@ -33,9 +33,11 @@ function Invoke-LoadFile {
     )
 
     $global:powershellYamlDotNetAssemblyPath = Join-Path $assemblyPath "YamlDotNet.dll"
-    $serializerAssemblyPath = Join-Path $assemblyPath "PowerShellYamlSerializer.dll"
+    $serializerAssemblyPath = Join-Path $assemblyPath "PowerShellYamlSerialization.dll"
     $yamlAssembly = [Reflection.Assembly]::LoadFile($powershellYamlDotNetAssemblyPath)
     $serializerAssembly = [Reflection.Assembly]::LoadFile($serializerAssemblyPath)
+    $yamlTypes = Join-Path $assemblyPath "PowerShellYamlTypes.dll"
+    [Reflection.Assembly]::LoadFrom($yamlTypes) | Out-Null
 
     if ($PSVersionTable['PSEdition'] -eq 'Core') {
         # Register the AssemblyResolve event to load dependencies manually. This seems to be needed only on
@@ -43,16 +45,16 @@ function Invoke-LoadFile {
         [System.AppDomain]::CurrentDomain.add_AssemblyResolve({
             param ($sender, $e)
             $pth = $powershellYamlDotNetAssemblyPath
-            # Load YamlDotNet if it's requested by PowerShellYamlSerializer. Ignore other requests as they might
+            # Load YamlDotNet if it's requested by PowerShellYamlSerialization. Ignore other requests as they might
             # originate from other assemblies that are not part of this module and which might have different
             # versions of the module that they need to load.
-            if ($e.Name -like "*YamlDotNet*" -and $e.RequestingAssembly -like "*PowerShellYamlSerializer*" ) {
+            if ($e.Name -like "*YamlDotNet*" -and $e.RequestingAssembly -like "*PowerShellYamlSerialization*" ) {
                 return [System.Reflection.Assembly]::LoadFile($powershellYamlDotNetAssemblyPath)
             }
 
             return $null
         })
-        # Load the StringQuotingEmitter from PowerShellYamlSerializer to force the resolver handler to fire once.
+        # Load the StringQuotingEmitter from PowerShellYamlSerialization to force the resolver handler to fire once.
         # This will load the YamlDotNet assembly and expand the global variable $powershellYamlDotNetAssemblyPath.
         # We then remove it to avoid polluting the global scope.
         # This is an ugly hack I am not happy with.
@@ -415,7 +417,8 @@ function Get-Serializer {
     $omitNull = $Options.HasFlag([SerializationOptions]::OmitNullValues)
 
     $stringQuoted = $stringQuotedAssembly.GetType("StringQuotingEmitter")
-    $builder = $stringQuoted::Add($builder, $omitNull)
+    $util = $stringQuotedAssembly.GetType("BuilderUtils")
+    $builder = $util::BuildSerializer($builder, $omitNull)
 
     return $builder.Build()
 }
@@ -493,7 +496,63 @@ function ConvertTo-Yaml {
     }
 }
 
+function Resolve-AttributeOverrides {
+    Param(
+        $deserializerBuilder,
+        [System.Type]$theType
+    )
+
+    foreach ($attr in $theType.GetProperties()) {
+        $custom = $attr.GetCustomAttributes($true)
+        if ($custom -eq $null) {
+            continue
+        }
+        $shouldRecurse = $false
+        foreach ($customAttr in $custom) {
+            switch($customAttr.TypeId.Name) {
+                "PowerShellYamlPropertyAliasAttribute" {
+                    if ($customAttr.YamlName -eq "") {
+                        break
+                    }
+                    $alias = $yamlDotNetAssembly.GetType("YamlDotNet.Serialization.YamlMemberAttribute")::new()
+                    $alias.Alias = $custom.YamlName
+                    $deserializerBuilder = $deserializerBuilder.WithAttributeOverride($theType, $attr.Name, $alias)
+                    break
+                }
+                "PowerShellYamlSerializable" {
+                    $shouldRecurse = $customAttr.ShouldRecurse
+                    break
+                }
+            }
+        }
+        if ($shouldRecurse -eq $true) {
+            $nestedType = $null
+            if ($attr.PropertyType -eq [string]) {
+                $nestedType = [string]
+            } else {
+                $instance = [System.Activator]::CreateInstance($attr.PropertyType)
+                $nestedType = $instance.GetType()
+            }
+            return (Resolve-AttributeOverrides -deserializer $deserializerBuilder -theType $nestedType)
+        }
+    }
+    return $deserializerBuilder
+}
+
+
+function Get-DeserializerBuilder {
+    $deserializerBuilder = $yamlDotNetAssembly.GetType("YamlDotNet.Serialization.DeserializerBuilder")::new()
+    $stringQuoted = $stringQuotedAssembly.GetType("BuilderUtils")
+    Write-Host "$stringQuoted"
+    $deserializerBuilder = $stringQuoted::BuildDeserializer($deserializerBuilder)
+    return $deserializerBuilder
+}
+
+
 New-Alias -Name cfy -Value ConvertFrom-Yaml
 New-Alias -Name cty -Value ConvertTo-Yaml
 
 Export-ModuleMember -Function ConvertFrom-Yaml,ConvertTo-Yaml -Alias cfy,cty
+Export-ModuleMember -Function Get-DeserializerBuilder
+Export-ModuleMember -Function Resolve-AttributeOverrides
+

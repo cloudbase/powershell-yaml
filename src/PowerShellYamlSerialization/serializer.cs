@@ -63,9 +63,16 @@ public class PSObjectTypeConverter : IYamlTypeConverter {
 
     public object ReadYaml(IParser parser, Type type, ObjectDeserializer rootDeserializer)
     {
-        // We don't really need to do any custom deserialization.
-        var deserializedObject = rootDeserializer(typeof(IDictionary<string, object>)) as IDictionary;
-        return deserializedObject;
+        var psObject = new PSObject();
+        parser.Consume<MappingStart>();
+
+        while (parser.TryConsume<Scalar>(out var scalar)) {
+            var key = scalar.Value;
+            var value = rootDeserializer(typeof(object));
+            psObject.Properties.Add(new PSNoteProperty(key, value));
+        }
+        parser.Consume<MappingEnd>();
+        return psObject;
     }
 
     public void WriteYaml(IEmitter emitter, object value, Type type, ObjectSerializer serializer) {
@@ -111,14 +118,16 @@ public class StringQuotingEmitter: ChainedEventEmitter {
                     eventInfo.Style = ScalarStyle.DoubleQuoted;
                 } else if (val.IndexOf('\n') > -1) {
                     eventInfo.Style = ScalarStyle.Literal;
-        }
+                }
                 break;
         }
 
         base.Emit(eventInfo, emitter);
     }
-    // objectGraphVisitor, w => w.OnTop()
-    public static SerializerBuilder Add(SerializerBuilder builder, bool omitNullValues = false) {
+}
+
+class BuilderUtils {
+    public static SerializerBuilder BuildSerializer(SerializerBuilder builder, bool omitNullValues = false) {
         builder = builder
             .WithEventEmitter(next => new StringQuotingEmitter(next))
             .WithTypeConverter(new BigIntegerTypeConverter())
@@ -129,4 +138,13 @@ public class StringQuotingEmitter: ChainedEventEmitter {
         }
         return builder;
     }
+
+    public static DeserializerBuilder BuildDeserializer(DeserializerBuilder builder) {
+        builder = builder
+            .WithTypeConverter(new BigIntegerTypeConverter())
+            .WithTypeConverter(new PSObjectTypeConverter(false));
+        Console.WriteLine(builder);
+        return builder;
+    }
+
 }
