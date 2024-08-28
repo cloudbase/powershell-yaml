@@ -143,7 +143,6 @@ class BuilderUtils {
         builder = builder
             .WithTypeConverter(new BigIntegerTypeConverter())
             .WithTypeConverter(new PSObjectTypeConverter(false));
-        Console.WriteLine(builder);
         return builder;
     }
 

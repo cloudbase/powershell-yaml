@@ -346,6 +346,132 @@ function Convert-PSObjectToGenericObject {
     return $data
 }
 
+function Get-Serializer {
+    Param(
+        [Parameter(Mandatory=$true)][SerializationOptions]$Options
+    )
+    
+    $builder = $yamlDotNetAssembly.GetType("YamlDotNet.Serialization.SerializerBuilder")::new()
+    
+    if ($Options.HasFlag([SerializationOptions]::Roundtrip)) {
+        $builder = $builder.EnsureRoundtrip()
+    }
+    if ($Options.HasFlag([SerializationOptions]::DisableAliases)) {
+        $builder = $builder.DisableAliases()
+    }
+    if ($Options.HasFlag([SerializationOptions]::EmitDefaults)) {
+        $builder = $builder.EmitDefaults()
+    }
+    if ($Options.HasFlag([SerializationOptions]::JsonCompatible)) {
+        $builder = $builder.JsonCompatible()
+    }
+    if ($Options.HasFlag([SerializationOptions]::DefaultToStaticType)) {
+        $resolver = $yamlDotNetAssembly.GetType("YamlDotNet.Serialization.TypeResolvers.StaticTypeResolver")::new()
+        $builder = $builder.WithTypeResolver($resolver)
+    }
+    if ($Options.HasFlag([SerializationOptions]::WithIndentedSequences)) {
+        $builder = $builder.WithIndentedSequences()
+    }
+
+    $omitNull = $Options.HasFlag([SerializationOptions]::OmitNullValues)
+
+    $stringQuoted = $stringQuotedAssembly.GetType("StringQuotingEmitter")
+    $util = $stringQuotedAssembly.GetType("BuilderUtils")
+    $builder = $util::BuildSerializer($builder, $omitNull)
+
+    return $builder.Build()
+}
+
+function Resolve-AttributeOverrides {
+    Param(
+        $deserializerBuilder,
+        [System.Type]$theType
+    )
+
+    foreach ($attr in $theType.GetProperties()) {
+        $custom = $attr.GetCustomAttributes($true)
+        if ($custom -eq $null) {
+            continue
+        }
+        $shouldRecurse = $false
+        foreach ($customAttr in $custom) {
+            switch($customAttr.TypeId.Name) {
+                "PowerShellYamlPropertyAliasAttribute" {
+                    if ($customAttr.YamlName -eq "") {
+                        break
+                    }
+                    $alias = $yamlDotNetAssembly.GetType("YamlDotNet.Serialization.YamlMemberAttribute")::new()
+                    $alias.Alias = $custom.YamlName
+                    $deserializerBuilder = $deserializerBuilder.WithAttributeOverride($theType, $attr.Name, $alias)
+                    break
+                }
+                "PowerShellYamlSerializable" {
+                    $shouldRecurse = $customAttr.ShouldRecurse
+                    break
+                }
+            }
+        }
+        if ($shouldRecurse -eq $true) {
+            $nestedType = $null
+            if ($attr.PropertyType -eq [string]) {
+                $nestedType = [string]
+            } else {
+                $instance = [System.Activator]::CreateInstance($attr.PropertyType)
+                $nestedType = $instance.GetType()
+            }
+            return (Resolve-AttributeOverrides -deserializer $deserializerBuilder -theType $nestedType)
+        }
+    }
+    return $deserializerBuilder
+}
+
+
+function Get-DeserializerBuilder {
+    $deserializerBuilder = $yamlDotNetAssembly.GetType("YamlDotNet.Serialization.DeserializerBuilder")::new()
+    $stringQuoted = $stringQuotedAssembly.GetType("BuilderUtils")
+    $deserializerBuilder = $stringQuoted::BuildDeserializer($deserializerBuilder)
+    return $deserializerBuilder
+}
+
+function ConvertFrom-YamlToClass {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
+        [string]$Yaml,
+        [System.Type]$Type
+    )
+
+    BEGIN {
+        $yamlArray = @()
+    }
+
+    PROCESS {
+        if($Yaml -is [string]) {
+            $yamlArray += $Yaml
+        }
+    }
+
+    END {
+        if($yamlArray.Count -eq 0) {
+            return
+        }
+        $deserializerBuilder = Get-DeserializerBuilder
+        $deserializerBuilder = Resolve-AttributeOverrides -deserializerBuilder $deserializerBuilder -theType $Type
+        $deserializer = $deserializerBuilder.Build()
+
+        if ($yamlArray.Count -eq 1) {
+            $deserialized = $deserializer.Deserialize($yamlArray[0], $Type)
+            return $deserialized
+        }
+
+        $ret = @()
+        foreach($i in $yamlArray) {
+            $ret += $deserializer.Deserialize($i, $Type)
+        }
+        return $ret
+    }
+}
+
 function ConvertFrom-Yaml {
     [CmdletBinding()]
     Param(
@@ -385,42 +511,6 @@ function ConvertFrom-Yaml {
         }
         return $ret
     }
-}
-
-function Get-Serializer {
-    Param(
-        [Parameter(Mandatory=$true)][SerializationOptions]$Options
-    )
-    
-    $builder = $yamlDotNetAssembly.GetType("YamlDotNet.Serialization.SerializerBuilder")::new()
-    
-    if ($Options.HasFlag([SerializationOptions]::Roundtrip)) {
-        $builder = $builder.EnsureRoundtrip()
-    }
-    if ($Options.HasFlag([SerializationOptions]::DisableAliases)) {
-        $builder = $builder.DisableAliases()
-    }
-    if ($Options.HasFlag([SerializationOptions]::EmitDefaults)) {
-        $builder = $builder.EmitDefaults()
-    }
-    if ($Options.HasFlag([SerializationOptions]::JsonCompatible)) {
-        $builder = $builder.JsonCompatible()
-    }
-    if ($Options.HasFlag([SerializationOptions]::DefaultToStaticType)) {
-        $resolver = $yamlDotNetAssembly.GetType("YamlDotNet.Serialization.TypeResolvers.StaticTypeResolver")::new()
-        $builder = $builder.WithTypeResolver($resolver)
-    }
-    if ($Options.HasFlag([SerializationOptions]::WithIndentedSequences)) {
-        $builder = $builder.WithIndentedSequences()
-    }
-
-    $omitNull = $Options.HasFlag([SerializationOptions]::OmitNullValues)
-
-    $stringQuoted = $stringQuotedAssembly.GetType("StringQuotingEmitter")
-    $util = $stringQuotedAssembly.GetType("BuilderUtils")
-    $builder = $util::BuildSerializer($builder, $omitNull)
-
-    return $builder.Build()
 }
 
 function ConvertTo-Yaml {
@@ -496,63 +586,10 @@ function ConvertTo-Yaml {
     }
 }
 
-function Resolve-AttributeOverrides {
-    Param(
-        $deserializerBuilder,
-        [System.Type]$theType
-    )
-
-    foreach ($attr in $theType.GetProperties()) {
-        $custom = $attr.GetCustomAttributes($true)
-        if ($custom -eq $null) {
-            continue
-        }
-        $shouldRecurse = $false
-        foreach ($customAttr in $custom) {
-            switch($customAttr.TypeId.Name) {
-                "PowerShellYamlPropertyAliasAttribute" {
-                    if ($customAttr.YamlName -eq "") {
-                        break
-                    }
-                    $alias = $yamlDotNetAssembly.GetType("YamlDotNet.Serialization.YamlMemberAttribute")::new()
-                    $alias.Alias = $custom.YamlName
-                    $deserializerBuilder = $deserializerBuilder.WithAttributeOverride($theType, $attr.Name, $alias)
-                    break
-                }
-                "PowerShellYamlSerializable" {
-                    $shouldRecurse = $customAttr.ShouldRecurse
-                    break
-                }
-            }
-        }
-        if ($shouldRecurse -eq $true) {
-            $nestedType = $null
-            if ($attr.PropertyType -eq [string]) {
-                $nestedType = [string]
-            } else {
-                $instance = [System.Activator]::CreateInstance($attr.PropertyType)
-                $nestedType = $instance.GetType()
-            }
-            return (Resolve-AttributeOverrides -deserializer $deserializerBuilder -theType $nestedType)
-        }
-    }
-    return $deserializerBuilder
-}
-
-
-function Get-DeserializerBuilder {
-    $deserializerBuilder = $yamlDotNetAssembly.GetType("YamlDotNet.Serialization.DeserializerBuilder")::new()
-    $stringQuoted = $stringQuotedAssembly.GetType("BuilderUtils")
-    Write-Host "$stringQuoted"
-    $deserializerBuilder = $stringQuoted::BuildDeserializer($deserializerBuilder)
-    return $deserializerBuilder
-}
-
 
 New-Alias -Name cfy -Value ConvertFrom-Yaml
 New-Alias -Name cty -Value ConvertTo-Yaml
 
 Export-ModuleMember -Function ConvertFrom-Yaml,ConvertTo-Yaml -Alias cfy,cty
-Export-ModuleMember -Function Get-DeserializerBuilder
-Export-ModuleMember -Function Resolve-AttributeOverrides
+Export-ModuleMember -Function ConvertFrom-YamlToClass
 
