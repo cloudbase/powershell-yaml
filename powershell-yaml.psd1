@@ -30,6 +30,8 @@ ModuleVersion = '0.4.8'
 PrivateData = @{
     PSData = @{
         Prerelease = 'rc2'
+        LicenseUri   = 'https://github.com/cloudbase/powershell-yaml/blob/master/LICENSE'
+        ProjectUri   = 'https://github.com/cloudbase/powershell-yaml'
     }
 }
 
