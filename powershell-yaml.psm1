@@ -147,13 +147,13 @@ function Convert-ValueToProperType {
                                 $parsedValue = [Convert]::ToInt64($Node.Value.Substring(2), 16)
                             }
                             default {
-                                if (![System.Numerics.BigInteger]::TryParse($Node.Value, [Globalization.NumberStyles]::Any, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)) {
+                                if (![System.Numerics.BigInteger]::TryParse($Node.Value, @([Globalization.NumberStyles]::Float, [Globalization.NumberStyles]::Integer), [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)) {
                                     Throw ("failed to parse scalar {0} as long" -f $Node)
                                 }
                             }
                         }
                     } else {
-                        if (![System.Numerics.BigInteger]::TryParse($Node.Value, [Globalization.NumberStyles]::Any, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)) {
+                        if (![System.Numerics.BigInteger]::TryParse($Node.Value, @([Globalization.NumberStyles]::Float, [Globalization.NumberStyles]::Integer), [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)) {
                             Throw ("failed to parse scalar {0} as long" -f $Node)
                         }
                     }
@@ -179,7 +179,7 @@ function Convert-ValueToProperType {
                             }
                         }
                     }
-                    if (![double]::TryParse($Node.Value, [Globalization.NumberStyles]::Any, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)) {
+                    if (![double]::TryParse($Node.Value, [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)) {
                         Throw ("failed to parse scalar {0} as double" -f $Node)
                     }
                     return $parsedValue
@@ -205,7 +205,7 @@ function Convert-ValueToProperType {
             }
 
             $parsedValue = New-Object -TypeName ([System.Numerics.BigInteger].FullName)
-            $result = [System.Numerics.BigInteger]::TryParse($Node, [Globalization.NumberStyles]::Any, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)
+            $result = [System.Numerics.BigInteger]::TryParse($Node, @([Globalization.NumberStyles]::Float, [Globalization.NumberStyles]::Integer), [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)
             if($result) {
                 $types = @([int], [long])
                 foreach($i in $types){
@@ -216,11 +216,10 @@ function Convert-ValueToProperType {
                 }
                 return $parsedValue
             }
-
             $types = @([double], [decimal])
             foreach($i in $types){
                 $parsedValue = New-Object -TypeName $i.FullName
-                $result = $i::TryParse($Node, [Globalization.NumberStyles]::Any, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)
+                $result = $i::TryParse($Node, [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)
                 if( $result ) {
                     return $parsedValue
                 }

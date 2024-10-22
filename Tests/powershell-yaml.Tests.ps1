@@ -203,6 +203,12 @@ wishlist:
     - product     : A Cool Book.
       quantity    : 1
       description : I love that Cool Book.
+      aStringTatLooksLikeAFloat: 55,34
+      aStringThatLooksLikeAnInt: 2018+
+      scientificNotationInt: 1e+3
+      scientificNotationBigInt: 1e+40
+      intWithTag: !!int "42"
+      scientificNotationIntWithTag: !!int "1e+3"
       price       : 55.34
 total: 4443.52
 int64: $([int64]::MaxValue)
@@ -244,7 +250,13 @@ bools:
                             product = "A Cool Book.";
                             quantity = 1;
                             description = "I love that Cool Book.";
-                            price = 55.34
+                            price = 55.34;
+                            aStringTatLooksLikeAFloat = "55,34"
+                            aStringThatLooksLikeAnInt = "2018+"
+                            scientificNotationInt = [int32]1000
+                            scientificNotationBigInt = [System.Numerics.BigInteger]::Parse("10000000000000000000000000000000000000000")
+                            intWithTag = 42
+                            scientificNotationIntWithTag = 1000
                         }
                     );
                     total = 4443.52;
@@ -289,6 +301,18 @@ bools:
                 $product['quantity'] | Should -Be $expectedProduct['quantity']
                 $product['description'] | Should -Be $expectedProduct['description']
                 $product['price'] | Should -Be $expectedProduct['price']
+                $product['aStringTatLooksLikeAFloat'] | Should -Be $expectedProduct['aStringTatLooksLikeAFloat']
+                $product['aStringTatLooksLikeAFloat'] | Should -BeOfType ([string])
+                $product['aStringThatLooksLikeAnInt'] | Should -Be $expectedProduct['aStringThatLooksLikeAnInt']
+                $product['aStringThatLooksLikeAnInt'] | Should -BeOfType ([string])
+                $product['scientificNotationInt'] | Should -Be $expectedProduct['scientificNotationInt']
+                $product['scientificNotationInt'] | Should -BeOfType ([int32])
+                $product['scientificNotationBigInt'] | Should -Be $expectedProduct['scientificNotationBigInt']
+                $product['scientificNotationBigInt'] | Should -BeOfType ([System.Numerics.BigInteger])
+                $product['intWithTag'] | Should -Be $expectedProduct['intWithTag']
+                $product['intWithTag'] | Should -BeOfType ([int32])
+                $product['scientificNotationIntWithTag'] | Should -Be $expectedProduct['scientificNotationIntWithTag']
+                $product['scientificNotationIntWithTag'] | Should -BeOfType ([int32])
                 $res['total'] | Should -Be $expected['total']
                 $res['note'] | Should -Be $expected['note']
 
