@@ -15,13 +15,22 @@
 
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-dotnet build --configuration Release $here/src/
+dotnet build --configuration Release $here/src/PowerShellYamlSerialization
+dotnet build --configuration Release $here/src/PowerShellYamlTypes
 
-$destinations = @("netstandard2.1", "net47")
+function Copy-Assemblies {
+    param(
+        $module
+    )
 
-foreach ($item in $destinations) {
-    $src = Join-Path $here "src" "bin" "Release" $item "PowerShellYamlSerializer.dll"
-    $dst = Join-Path $here "lib" $item "PowerShellYamlSerializer.dll"
+    $destinations = @("netstandard2.1", "net47")
+    foreach ($item in $destinations) {
+        $src = Join-Path $here "src" $module "bin" "Release" $item "$module.dll"
+        $dst = Join-Path $here "lib" $item "$module.dll"
 
-    Copy-Item -Force $src $dst
+        Copy-Item -Force $src $dst
+    }
 }
+
+Copy-Assemblies -module "PowerShellYamlSerialization"
+Copy-Assemblies -module "PowerShellYamlTypes"
