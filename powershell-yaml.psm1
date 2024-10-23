@@ -24,6 +24,7 @@ enum SerializationOptions {
     WithIndentedSequences = 32
     OmitNullValues = 64
     UseFlowStyle = 128
+    UseSequenceFlowStyle = 256
 }
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $infinityRegex = [regex]::new('^[-+]?(\.inf|\.Inf|\.INF)$', "Compiled, CultureInvariant");
@@ -415,9 +416,10 @@ function Get-Serializer {
 
     $omitNull = $Options.HasFlag([SerializationOptions]::OmitNullValues)
     $useFlowStyle = $Options.HasFlag([SerializationOptions]::UseFlowStyle)
+    $useSequenceFlowStyle = $Options.HasFlag([SerializationOptions]::UseSequenceFlowStyle)
 
     $stringQuoted = $stringQuotedAssembly.GetType("BuilderUtils")
-    $builder = $stringQuoted::BuildSerializer($builder, $omitNull, $useFlowStyle)
+    $builder = $stringQuoted::BuildSerializer($builder, $omitNull, $useFlowStyle, $useSequenceFlowStyle)
 
     return $builder.Build()
 }
