@@ -117,8 +117,24 @@ public class StringQuotingEmitter: ChainedEventEmitter {
 
         base.Emit(eventInfo, emitter);
     }
-    // objectGraphVisitor, w => w.OnTop()
-    public static SerializerBuilder Add(SerializerBuilder builder, bool omitNullValues = false) {
+}
+
+public class FlowStyleEmitter: ChainedEventEmitter {
+    public FlowStyleEmitter(IEventEmitter next): base(next) {}
+
+    public override void Emit(MappingStartEventInfo eventInfo, IEmitter emitter) {
+        eventInfo.Style = MappingStyle.Flow;
+        base.Emit(eventInfo, emitter);
+    }
+
+    public override void Emit(SequenceStartEventInfo eventInfo, IEmitter emitter){
+        eventInfo.Style = SequenceStyle.Flow;
+        nextEmitter.Emit(eventInfo, emitter);
+    }
+}
+
+class BuilderUtils {
+    public static SerializerBuilder BuildSerializer(SerializerBuilder builder, bool omitNullValues = false, bool useFlowStyle = false) {
         builder = builder
             .WithEventEmitter(next => new StringQuotingEmitter(next))
             .WithTypeConverter(new BigIntegerTypeConverter())
@@ -126,6 +142,9 @@ public class StringQuotingEmitter: ChainedEventEmitter {
         if (omitNullValues == true) {
             builder = builder
                 .WithEmissionPhaseObjectGraphVisitor(args => new NullValueGraphVisitor(args.InnerVisitor));
+        }
+        if (useFlowStyle == true) {
+            builder = builder.WithEventEmitter(next => new FlowStyleEmitter(next));
         }
         return builder;
     }
