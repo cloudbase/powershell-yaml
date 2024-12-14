@@ -81,7 +81,17 @@ public class PSObjectTypeConverter : IYamlTypeConverter {
                 emitter.Emit(new Scalar(AnchorName.Empty, "tag:yaml.org,2002:null", "", ScalarStyle.Plain, true, false));
             } else {
                 serializer(prop.Name, prop.Name.GetType());
-                serializer(prop.Value, prop.Value.GetType());
+                var objType = prop.Value.GetType();
+                var val = prop.Value;
+                if (prop.Value is PSObject nestedPsObj) {
+                    var nestedType = nestedPsObj.BaseObject.GetType();
+                    if (nestedType != typeof(System.Management.Automation.PSCustomObject)) {
+                        objType = nestedPsObj.BaseObject.GetType();
+                        val = nestedPsObj.BaseObject;
+                    }
+                }
+                serializer(val, objType);
+
             }
         }
         emitter.Emit(new MappingEnd());
