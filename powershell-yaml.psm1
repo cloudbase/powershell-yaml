@@ -244,7 +244,7 @@ function Convert-YamlMappingToHashtable {
         [switch] $Ordered
     )
     PROCESS {
-        if ($Ordered) { $ret = [System.Collections.Specialized.OrderedDictionary]::new() } else { $ret = [hashtable]::new() }
+        if ($Ordered) { $ret = [ordered]@{} } else { $ret = @{} }
         foreach($i in $Node.Children.Keys) {
             $ret[$i.Value] = Convert-YamlDocumentToPSObject $Node.Children[$i] -Ordered:$Ordered
         }
