@@ -29,10 +29,41 @@ InModuleScope $moduleName {
     $compareStrictly = Get-EquivalencyOption -Comparator Equality
 
     Describe "Test PSCustomObject wrapped values are serialized correctly" {
-        Context "Wrapped values" {
+        Context "A PSCustomObject containing nested PSCustomObjects" {
             It "Should serialize correctly" {
                 $expectBigInt = [System.Numerics.BigInteger]::Parse("9999999999999999999999999999999999999999999999999")
                 $obj = [PSCustomObject]@{a = Write-Output 'string'; b = Write-Output 1; c = Write-Output @{nested = $true};d = [pscustomobject]$expectBigInt}
+                $asYaml = ConvertTo-Yaml $obj
+                $fromYaml = ConvertFrom-Yaml $asYaml
+
+                Assert-Equivalent -Options $compareStrictly -Expected "string" -Actual $fromYaml["a"]
+                Assert-Equivalent -Options $compareStrictly -Expected 1 -Actual $fromYaml["b"]
+                Assert-Equivalent -Options $compareStrictly -Expected $expectBigInt -Actual $fromYaml["d"]
+            }
+        }
+
+        Context "A hashtable containing nested PSCustomObjects" {
+            It "Should serialize correctly" {
+                $expectBigInt = [System.Numerics.BigInteger]::Parse("9999999999999999999999999999999999999999999999999")
+                $obj = @{a = Write-Output 'string'; b = Write-Output 1; c = Write-Output @{nested = $true};d = [pscustomobject]$expectBigInt}
+                $asYaml = ConvertTo-Yaml $obj
+                $fromYaml = ConvertFrom-Yaml $asYaml
+
+                Assert-Equivalent -Options $compareStrictly -Expected "string" -Actual $fromYaml["a"]
+                Assert-Equivalent -Options $compareStrictly -Expected 1 -Actual $fromYaml["b"]
+                Assert-Equivalent -Options $compareStrictly -Expected $expectBigInt -Actual $fromYaml["d"]
+            }
+        }
+
+        Context "A generic dictionary containing nested PSCustomObjects" {
+            It "Should serialize correctly" {
+                $expectBigInt = [System.Numerics.BigInteger]::Parse("9999999999999999999999999999999999999999999999999")
+                $obj = [System.Collections.Generic.Dictionary[string, object]]::new()
+                $obj["a"] = Write-Output 'string'
+                $obj["b"] = Write-Output 1
+                $obj["c"] = Write-Output @{nested = $true}
+                $obj["d"] = [pscustomobject]$expectBigInt
+
                 $asYaml = ConvertTo-Yaml $obj
                 $fromYaml = ConvertFrom-Yaml $asYaml
 
