@@ -49,6 +49,46 @@ public class BigIntegerTypeConverter : IYamlTypeConverter {
     }
 }
 
+public class IDictionaryTypeConverter :  IYamlTypeConverter {
+
+    private bool omitNullValues;
+
+    public IDictionaryTypeConverter(bool omitNullValues = false) {
+        this.omitNullValues = omitNullValues;
+    }
+
+    public bool Accepts(Type type) {
+        return typeof(IDictionary).IsAssignableFrom(type);
+    }
+
+    public object ReadYaml(IParser parser, Type type, ObjectDeserializer rootDeserializer) {
+        var deserializedObject = rootDeserializer(typeof(IDictionary<string, object>)) as IDictionary;
+        return deserializedObject;
+    }
+
+    public void WriteYaml(IEmitter emitter, object value, Type type, ObjectSerializer serializer) {
+        var hObj = (IDictionary)value;
+        emitter.Emit(new MappingStart());
+        foreach (DictionaryEntry entry in hObj) {
+            if(entry.Value == null) {
+                if (this.omitNullValues == true) {
+                    continue;
+                }
+                serializer(entry.Key, entry.Key.GetType());
+                emitter.Emit(new Scalar(AnchorName.Empty, "tag:yaml.org,2002:null", "", ScalarStyle.Plain, true, false));
+                continue;
+            }
+            serializer(entry.Key, entry.Key.GetType());
+            if (entry.Value is PSObject nestedObj) {
+                serializer(nestedObj.BaseObject, nestedObj.BaseObject.GetType());
+            } else {
+                serializer(entry.Value, entry.Value.GetType());
+            }
+        }
+        emitter.Emit(new MappingEnd());
+    }
+}
+
 public class PSObjectTypeConverter : IYamlTypeConverter {
 
     private bool omitNullValues;
@@ -70,7 +110,6 @@ public class PSObjectTypeConverter : IYamlTypeConverter {
 
     public void WriteYaml(IEmitter emitter, object value, Type type, ObjectSerializer serializer) {
         var psObj = (PSObject)value;
-
         emitter.Emit(new MappingStart());
         foreach (var prop in psObj.Properties) {
             if (prop.Value == null) {
@@ -81,7 +120,17 @@ public class PSObjectTypeConverter : IYamlTypeConverter {
                 emitter.Emit(new Scalar(AnchorName.Empty, "tag:yaml.org,2002:null", "", ScalarStyle.Plain, true, false));
             } else {
                 serializer(prop.Name, prop.Name.GetType());
-                serializer(prop.Value, prop.Value.GetType());
+                var objType = prop.Value.GetType();
+                var val = prop.Value;
+                if (prop.Value is PSObject nestedPsObj) {
+                    var nestedType = nestedPsObj.BaseObject.GetType();
+                    if (nestedType != typeof(System.Management.Automation.PSCustomObject)) {
+                        objType = nestedPsObj.BaseObject.GetType();
+                        val = nestedPsObj.BaseObject;
+                    }
+                }
+                serializer(val, objType);
+
             }
         }
         emitter.Emit(new MappingEnd());
@@ -151,6 +200,7 @@ class BuilderUtils {
         builder = builder
             .WithEventEmitter(next => new StringQuotingEmitter(next))
             .WithTypeConverter(new BigIntegerTypeConverter())
+            .WithTypeConverter(new IDictionaryTypeConverter(omitNullValues))
             .WithTypeConverter(new PSObjectTypeConverter(omitNullValues));
         if (omitNullValues == true) {
             builder = builder
