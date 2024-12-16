@@ -254,6 +254,8 @@ wishlist:
       scientificNotationInt: 1e+3
       scientificNotationBigInt: 1e+40
       intWithTag: !!int "42"
+      zeroIntWithTag: !!int "0"
+      zeroIntWithoutTag: 0
       scientificNotationIntWithTag: !!int "1e+3"
       price       : 55.34
 total: 4443.52
@@ -302,6 +304,8 @@ bools:
                             scientificNotationInt = [int32]1000
                             scientificNotationBigInt = [System.Numerics.BigInteger]::Parse("10000000000000000000000000000000000000000")
                             intWithTag = 42
+                            zeroIntWithTag = 0
+                            zeroIntWithoutTag = 0
                             scientificNotationIntWithTag = 1000
                         }
                     );
@@ -351,6 +355,10 @@ bools:
                 $product['aStringTatLooksLikeAFloat'] | Should -BeOfType ([string])
                 $product['aStringThatLooksLikeAnInt'] | Should -Be $expectedProduct['aStringThatLooksLikeAnInt']
                 $product['aStringThatLooksLikeAnInt'] | Should -BeOfType ([string])
+                $product['zeroIntWithTag'] | Should -Be $expectedProduct['zeroIntWithTag']
+                $product['zeroIntWithTag'] | Should -BeOfType ([int32])
+                $product['zeroIntWithoutTag'] | Should -Be $expectedProduct['zeroIntWithoutTag']
+                $product['zeroIntWithoutTag'] | Should -BeOfType ([int32])
                 $product['scientificNotationInt'] | Should -Be $expectedProduct['scientificNotationInt']
                 $product['scientificNotationInt'] | Should -BeOfType ([int32])
                 $product['scientificNotationBigInt'] | Should -Be $expectedProduct['scientificNotationBigInt']
