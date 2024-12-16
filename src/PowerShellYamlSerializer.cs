@@ -8,6 +8,7 @@ using YamlDotNet.Core;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.EventEmitters;
 using YamlDotNet.Core.Events;
+using YamlDotNet.Serialization.NamingConventions;
 using YamlDotNet.Serialization.ObjectGraphVisitors;
 
 public sealed class NullValueGraphVisitor : ChainedObjectGraphVisitor
@@ -52,9 +53,11 @@ public class BigIntegerTypeConverter : IYamlTypeConverter {
 public class IDictionaryTypeConverter :  IYamlTypeConverter {
 
     private bool omitNullValues;
+    private bool useFlowStyle;
 
-    public IDictionaryTypeConverter(bool omitNullValues = false) {
+    public IDictionaryTypeConverter(bool omitNullValues = false, bool useFlowStyle = false) {
         this.omitNullValues = omitNullValues;
+        this.useFlowStyle = useFlowStyle;
     }
 
     public bool Accepts(Type type) {
@@ -68,7 +71,9 @@ public class IDictionaryTypeConverter :  IYamlTypeConverter {
 
     public void WriteYaml(IEmitter emitter, object value, Type type, ObjectSerializer serializer) {
         var hObj = (IDictionary)value;
-        emitter.Emit(new MappingStart());
+        var mappingStyle = this.useFlowStyle ? MappingStyle.Flow : MappingStyle.Block;
+
+        emitter.Emit(new MappingStart(AnchorName.Empty, TagName.Empty, true, mappingStyle));
         foreach (DictionaryEntry entry in hObj) {
             if(entry.Value == null) {
                 if (this.omitNullValues == true) {
@@ -92,9 +97,11 @@ public class IDictionaryTypeConverter :  IYamlTypeConverter {
 public class PSObjectTypeConverter : IYamlTypeConverter {
 
     private bool omitNullValues;
+    private bool useFlowStyle;
 
-    public PSObjectTypeConverter(bool omitNullValues = false) {
+    public PSObjectTypeConverter(bool omitNullValues = false, bool useFlowStyle = false) {
         this.omitNullValues = omitNullValues;
+        this.useFlowStyle = useFlowStyle;
     }
 
     public bool Accepts(Type type) {
@@ -110,7 +117,8 @@ public class PSObjectTypeConverter : IYamlTypeConverter {
 
     public void WriteYaml(IEmitter emitter, object value, Type type, ObjectSerializer serializer) {
         var psObj = (PSObject)value;
-        emitter.Emit(new MappingStart());
+        var mappingStyle = this.useFlowStyle ? MappingStyle.Flow : MappingStyle.Block;
+        emitter.Emit(new MappingStart(AnchorName.Empty, TagName.Empty, true, mappingStyle));
         foreach (var prop in psObj.Properties) {
             if (prop.Value == null) {
                 if (this.omitNullValues == true) {
@@ -196,12 +204,19 @@ class BuilderUtils {
         SerializerBuilder builder,
         bool omitNullValues = false,
         bool useFlowStyle = false,
-        bool useSequenceFlowStyle = false) {
+        bool useSequenceFlowStyle = false,
+        bool jsonCompatible = false) {
+
+        if (jsonCompatible == true) {
+            useFlowStyle = true;
+            useSequenceFlowStyle = true;
+        }
+
         builder = builder
             .WithEventEmitter(next => new StringQuotingEmitter(next))
             .WithTypeConverter(new BigIntegerTypeConverter())
-            .WithTypeConverter(new IDictionaryTypeConverter(omitNullValues))
-            .WithTypeConverter(new PSObjectTypeConverter(omitNullValues));
+            .WithTypeConverter(new IDictionaryTypeConverter(omitNullValues, useFlowStyle))
+            .WithTypeConverter(new PSObjectTypeConverter(omitNullValues, useFlowStyle));
         if (omitNullValues == true) {
             builder = builder
                 .WithEmissionPhaseObjectGraphVisitor(args => new NullValueGraphVisitor(args.InnerVisitor));

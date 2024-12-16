@@ -392,7 +392,8 @@ function Get-Serializer {
     )
     
     $builder = $yamlDotNetAssembly.GetType("YamlDotNet.Serialization.SerializerBuilder")::new()
-    
+    $JsonCompatible = $Options.HasFlag([SerializationOptions]::JsonCompatible)
+
     if ($Options.HasFlag([SerializationOptions]::Roundtrip)) {
         $builder = $builder.EnsureRoundtrip()
     }
@@ -402,7 +403,7 @@ function Get-Serializer {
     if ($Options.HasFlag([SerializationOptions]::EmitDefaults)) {
         $builder = $builder.EmitDefaults()
     }
-    if ($Options.HasFlag([SerializationOptions]::JsonCompatible)) {
+    if ($JsonCompatible) {
         $builder = $builder.JsonCompatible()
     }
     if ($Options.HasFlag([SerializationOptions]::DefaultToStaticType)) {
@@ -418,7 +419,7 @@ function Get-Serializer {
     $useSequenceFlowStyle = $Options.HasFlag([SerializationOptions]::UseSequenceFlowStyle)
 
     $stringQuoted = $stringQuotedAssembly.GetType("BuilderUtils")
-    $builder = $stringQuoted::BuildSerializer($builder, $omitNull, $useFlowStyle, $useSequenceFlowStyle)
+    $builder = $stringQuoted::BuildSerializer($builder, $omitNull, $useFlowStyle, $useSequenceFlowStyle, $JsonCompatible)
 
     return $builder.Build()
 }
