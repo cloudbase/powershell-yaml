@@ -161,7 +161,7 @@ function Convert-ValueToProperType {
                     }
                     foreach ($i in $intTypes) {
                         $asIntType = $parsedValue -as $i
-                        if($asIntType) {
+                        if($null -ne $asIntType) {
                             return $asIntType
                         }
                     }
@@ -212,7 +212,7 @@ function Convert-ValueToProperType {
                 $types = @([int], [long])
                 foreach($i in $types){
                     $asType = $parsedValue -as $i
-                    if($asType) {
+                    if($null -ne $asType) {
                         return $asType
                     }
                 }
