@@ -25,13 +25,19 @@
 RootModule = 'powershell-yaml.psm1'
 
 # Version number of this module.
-ModuleVersion = '0.4.9'
+ModuleVersion = '0.4.10'
 
 PrivateData = @{
     PSData = @{
         LicenseUri   = 'https://github.com/cloudbase/powershell-yaml/blob/master/LICENSE'
         ProjectUri   = 'https://github.com/cloudbase/powershell-yaml'
         ReleaseNotes = @'
+# 0.4.10
+
+Bugfixes:
+* A broken if statement mistakingly considered 0 as false and converted a 0 valued int to BigInteger (https://github.com/cloudbase/powershell-yaml/pull/165).
+* Fixes JSONCompatible flag after we implemented an IDictionary and PSCustomObject type converters (https://github.com/cloudbase/powershell-yaml/pull/166).
+
 # 0.4.9
 
 Changes in this version:
