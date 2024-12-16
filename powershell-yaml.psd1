@@ -25,12 +25,19 @@
 RootModule = 'powershell-yaml.psm1'
 
 # Version number of this module.
-ModuleVersion = '0.4.8'
+ModuleVersion = '0.4.9'
 
 PrivateData = @{
     PSData = @{
         LicenseUri   = 'https://github.com/cloudbase/powershell-yaml/blob/master/LICENSE'
         ProjectUri   = 'https://github.com/cloudbase/powershell-yaml'
+        ReleaseNotes = @'
+# 0.4.9
+
+Changes in this version:
+* Revert commit 7980c7c "Fix losing case sensitive keys" (https://github.com/cloudbase/powershell-yaml/pull/159) . This change added a breaking change which was not properly documented before release, breaking some applications. This change will be re-added in a later version.
+* Unwrap PScustomObjects before serializing (https://github.com/cloudbase/powershell-yaml/pull/158)
+'@
     }
 }
 
