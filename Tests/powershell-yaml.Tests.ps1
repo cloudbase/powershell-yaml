@@ -28,6 +28,99 @@ Import-Module $modulePath
 InModuleScope $moduleName {
     $compareStrictly = Get-EquivalencyOption -Comparator Equality
 
+    Describe "Test flow styles" {
+        Context "Mappings, sequences and PSCustomObjects" {
+            It "Should serialize Block flow (default) correctly" {
+                $obj = [ordered]@{
+                    aStringKey = "test"
+                    anIntKey = 1
+                    anArrayKey = @(1, 2, 3)
+                }
+                $expected = @"
+aStringKey: test
+anIntKey: 1
+anArrayKey:
+- 1
+- 2
+- 3
+
+"@
+                $serialized = ConvertTo-Yaml $obj
+                Assert-Equivalent -Options $compareStrictly -Expected $expected -Actual $serialized
+
+                $pso = [pscustomobject]$obj
+                $serialized = ConvertTo-Yaml $pso
+                Assert-Equivalent -Options $compareStrictly -Expected $expected -Actual $serialized
+            }
+
+            It "Should serialize Flow flow correctly" {
+                $obj = [ordered]@{
+                    aStringKey = "test"
+                    anIntKey = 1
+                    anArrayKey = @(1, 2, 3)
+                }
+                $expected = @"
+{aStringKey: test, anIntKey: 1, anArrayKey: [1, 2, 3]}
+
+"@
+                $serialized = ConvertTo-Yaml -Options UseFlowStyle $obj
+                Assert-Equivalent -Options $compareStrictly -Expected $expected -Actual $serialized
+
+                $pso = [pscustomobject]$obj
+                $serialized = ConvertTo-Yaml -Options UseFlowStyle $pso
+                Assert-Equivalent -Options $compareStrictly -Expected $expected -Actual $serialized
+            }
+
+            It "Should serialize SequenceFlowStyle correctly" {
+                $obj = [ordered]@{
+                    aStringKey = "test"
+                    anIntKey = 1
+                    anArrayKey = @(1, 2, 3)
+                }
+                $expected = @"
+aStringKey: test
+anIntKey: 1
+anArrayKey: [1, 2, 3]
+
+"@
+                $serialized = ConvertTo-Yaml -Options UseSequenceFlowStyle $obj
+                Assert-Equivalent -Options $compareStrictly -Expected $expected -Actual $serialized
+
+                $pso = [pscustomobject]$obj
+                $serialized = ConvertTo-Yaml -Options UseSequenceFlowStyle $pso
+                Assert-Equivalent -Options $compareStrictly -Expected $expected -Actual $serialized
+            }
+
+            It "Should serialize JsonCompatible correctly" {
+                $obj = [ordered]@{
+                    aStringKey = "test"
+                    anIntKey = 1
+                    anArrayKey = @(1, 2, 3)
+                }
+                $expected = @"
+{"aStringKey": "test", "anIntKey": 1, "anArrayKey": [1, 2, 3]}
+
+"@
+                $serialized = ConvertTo-Yaml -Options JsonCompatible $obj
+                Assert-Equivalent -Options $compareStrictly -Expected $expected -Actual $serialized
+
+                if ($PSVersionTable['PSEdition'] -eq 'Core') {
+                    $deserializedWithJSonCommandlet = $serialized | ConvertFrom-Json -AsHashtable
+                    Assert-Equivalent -Options $compareStrictly -Expected $obj -Actual $deserializedWithJSonCommandlet
+                }
+
+                $pso = [pscustomobject]$obj
+                $serialized = ConvertTo-Yaml -Options JsonCompatible $pso
+                Assert-Equivalent -Options $compareStrictly -Expected $expected -Actual $serialized
+
+                if ($PSVersionTable['PSEdition'] -eq 'Core') {
+                    $deserializedWithJSonCommandlet = $serialized | ConvertFrom-Json -AsHashtable
+                    Assert-Equivalent -Options $compareStrictly -Expected $obj -Actual $deserializedWithJSonCommandlet
+                }
+            }
+        }
+    }
+
     Describe "Test PSCustomObject wrapped values are serialized correctly" {
         Context "A PSCustomObject containing nested PSCustomObjects" {
             It "Should serialize correctly" {
