@@ -84,8 +84,15 @@ public class IDictionaryTypeConverter :  IYamlTypeConverter {
                 continue;
             }
             serializer(entry.Key, entry.Key.GetType());
+            var objType = entry.Value.GetType();
+            var val = entry.Value;
             if (entry.Value is PSObject nestedObj) {
-                serializer(nestedObj.BaseObject, nestedObj.BaseObject.GetType());
+                var nestedType = nestedObj.BaseObject.GetType();
+                if (nestedType != typeof(System.Management.Automation.PSCustomObject)) {
+                    objType = nestedObj.BaseObject.GetType();
+                    val = nestedObj.BaseObject;
+                }
+                serializer(val, objType);
             } else {
                 serializer(entry.Value, entry.Value.GetType());
             }
