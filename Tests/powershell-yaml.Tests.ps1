@@ -725,9 +725,17 @@ int64: 9223372036854775807
                 $nestedPsO = [PSCustomObject]@{
                     Nested = 'NestedValue'
                 }
+                $nestedHashTable = @{
+                    "aKey" = $nestedPsO
+                }
+                $nestedArray = @(
+                    $nestedPsO
+                )
                 $PsO = [PSCustomObject]@{
                     Name = 'Value'
                     Nested = $nestedPsO
+                    NestedHashTable = $nestedHashTable
+                    NestedArray = $nestedArray
                     NullValue = $null
                 }
 
@@ -746,6 +754,16 @@ int64: 9223372036854775807
                 $ret["PsO"]["Name"] = "Value"
                 $ret["PsO"]["Nested"] = [System.Collections.Specialized.OrderedDictionary]::new()
                 $ret["PsO"]["Nested"]["Nested"] = "NestedValue"
+                $ret["PsO"]["NestedHashTable"] = [ordered]@{
+                    "aKey" = [ordered]@{
+                        "Nested" = "NestedValue"
+                    }
+                }
+                $ret["PsO"]["NestedArray"] = @(
+                    [ordered]@{
+                        "Nested" = "NestedValue"
+                    }
+                )
                 $ret["PsO"]["NullValue"] = $null
                 $ret["Ok"] = "aye"
                 Assert-Equivalent -Options $compareStrictly -Expected $ret -Actual $result
