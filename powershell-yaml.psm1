@@ -43,8 +43,7 @@ function Invoke-LoadFile {
         # Register the AssemblyResolve event to load dependencies manually. This seems to be needed only on
         # PowerShell Core.
         [System.AppDomain]::CurrentDomain.add_AssemblyResolve({
-            param ($sender, $e)
-            $pth = $powershellYamlDotNetAssemblyPath
+            param ($snd, $e)
             # Load YamlDotNet if it's requested by PowerShellYamlSerializer. Ignore other requests as they might
             # originate from other assemblies that are not part of this module and which might have different
             # versions of the module that they need to load.
