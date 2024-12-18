@@ -168,7 +168,7 @@ function Convert-ValueToProperType {
                 }
                 "tag:yaml.org,2002:float" {
                     $parsedValue = 0.0
-                    if ($infinityRegex.Matches($Node.Value)) {
+                    if ($infinityRegex.Matches($Node.Value).Count -gt 0) {
                         $prefix = $Node.Value.Substring(0, 1)
                         switch ($prefix) {
                             "-" {
@@ -180,8 +180,8 @@ function Convert-ValueToProperType {
                             }
                         }
                     }
-                    if (![double]::TryParse($Node.Value, [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)) {
-                        Throw ("failed to parse scalar {0} as double" -f $Node)
+                    if (![decimal]::TryParse($Node.Value, [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)) {
+                        Throw ("failed to parse scalar {0} as decimal" -f $Node)
                     }
                     return $parsedValue
                 }
