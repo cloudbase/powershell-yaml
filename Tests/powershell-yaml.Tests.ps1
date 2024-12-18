@@ -493,7 +493,128 @@ bools:
                 Assert-Equivalent -Options $compareStrictly -Actual $res -Expected $expected
             }
         }
+    }
 
+    Describe "Test ConvertTo-Yaml can serialize more complex nesting" {
+        BeforeAll {
+            $global:sample = [PSCustomObject]@{
+                a1 = "a"
+                a2 = [PSCustomObject]@{
+                    "a1" = "a"
+                    a2 = [PSCustomObject]@{
+                    a1 = [PSCustomObject]@{
+                        "a1" = "a"
+                        a2 = [PSCustomObject]@{
+                        a1 = "a"
+                        }
+                        a3 = [ordered]@{
+                        a1 = @("a", "b")
+                        }
+                        a4 = @("a", "b")
+                    }
+                    }
+                    a3 = @(
+                    [PSCustomObject]@{
+                        a1 = "a"
+                        a2 = $False
+                    }
+                    )
+                }
+            }
+
+            $global:sample2 = [PSCustomObject]@{
+                b1 = "b"
+                b2 = [PSCustomObject]@{
+                  b1 = "b"
+                  b2 = [PSCustomObject]@{
+                    "b" = "b"
+                  }
+                }
+                b3 = [ordered]@{
+                    b1 = @("b1", "b2")
+                }
+                b4 = $True
+                b5 = [PSCustomObject]@{
+                    b = "b"
+                }
+            }
+
+            $global:expected_json = '{"a1":"a","a2":{"a1":"a","a2":{"a1":{"a1":"a","a2":{"a1":"a"},"a3":{"a1":["a","b"]},"a4":["a","b"]}},"a3":[{"a1":"a","a2":false}]}}'
+            $global:expected_json2 = '{"b1":"b","b2":{"b1":"b","b2":{"b":"b"}},"b3":{"b1":["b1","b2"]},"b4":true,"b5":{"b":"b"}}'
+            $global:expected_block_yaml = @"
+a1: a
+a2:
+  a1: a
+  a2:
+    a1:
+      a1: a
+      a2:
+        a1: a
+      a3:
+        a1:
+        - a
+        - b
+      a4:
+      - a
+      - b
+  a3:
+  - a1: a
+    a2: false
+
+"@
+
+            $global:expected_flow_yaml = '{a1: a, a2: {a1: a, a2: {a1: {a1: a, a2: {a1: a}, a3: {a1: [a, b]}, a4: [a, b]}}, a3: [{a1: a, a2: false}]}}'
+            $global:expected_block_yaml2 = @"
+b1: b
+b2:
+  b1: b
+  b2:
+    b: b
+b3:
+  b1:
+  - b1
+  - b2
+b4: true
+b5:
+  b: b
+
+"@
+            $global:expected_flow_yaml2 = '{b1: b, b2: {b1: b, b2: {b: b}}, b3: {b1: [b1, b2]}, b4: true, b5: {b: b}}'
+        }
+
+        It "Should serialize nested PSCustomObjects to YAML" {
+            $yaml = ConvertTo-Yaml $sample
+            $yaml | Should -Be $expected_block_yaml
+
+            $yaml = ConvertTo-Yaml $sample2
+            $yaml | Should -Be $expected_block_yaml2
+        }
+
+        It "Should serialize nested PSCustomObjects to YAML flow format" {
+            $yaml = ConvertTo-Yaml $sample -Options UseFlowStyle
+            $yaml.Replace($([Environment]::NewLine), "") | Should -Be $expected_flow_yaml
+
+            $yaml = ConvertTo-Yaml $sample2 -Options UseFlowStyle
+            $yaml.Replace($([Environment]::NewLine), "") | Should -Be $expected_flow_yaml2
+        }
+
+        It "Should serialize nested PSCustomObjects to JSON" {
+            # Converted with powershell-yaml
+            $json = ConvertTo-Yaml $sample -Options JsonCompatible
+            $json.Replace(" ", "").Replace($([Environment]::NewLine), "") | Should -Be $expected_json
+
+            # Converted with ConvertTo-Json
+            $withJsonCommandlet = ConvertTo-Json -Compress -Depth 100 $sample
+            $withJsonCommandlet | Should -Be $expected_json
+
+            # Converted with powershell-yaml
+            $json = ConvertTo-Yaml $sample2 -Options JsonCompatible
+            $json.Replace(" ", "").Replace($([Environment]::NewLine), "") | Should -Be $expected_json2
+
+            # Converted with ConvertTo-Json
+            $withJsonCommandlet = ConvertTo-Json -Compress -Depth 100 $sample2
+            $withJsonCommandlet | Should -Be $expected_json2
+        }
     }
 
     Describe "Test ConvertTo-Yaml -OutFile parameter behavior" {
@@ -704,6 +825,7 @@ bigInt: 99999999999999999999999999999999999
 int32: 2147483647
 int64: 9223372036854775807
 decimal: 3.10
+reallyLongDecimal: 3.9999999999999990
 '@
         }
 
@@ -715,8 +837,10 @@ decimal: 3.10
         It "Should round-trip decimals with trailing 0" {
             $result = ConvertFrom-Yaml -Yaml $value
             $result.decimal | Should -Be ([decimal]3.10)
+            $result.reallyLongDecimal | Should -Be ([decimal]::Parse("3.9999999999999990", [cultureinfo]::InvariantCulture))
 
             ConvertTo-Yaml $result["decimal"] | Should -Be "3.10$([Environment]::NewLine)"
+            ConvertTo-Yaml $result["reallyLongDecimal"] | Should -Be "3.9999999999999990$([Environment]::NewLine)"
         }
 
         It 'Should be of proper type and value' {
