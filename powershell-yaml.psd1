@@ -25,13 +25,25 @@
 RootModule = 'powershell-yaml.psm1'
 
 # Version number of this module.
-ModuleVersion = '0.4.10'
+ModuleVersion = '0.4.11'
 
 PrivateData = @{
     PSData = @{
         LicenseUri   = 'https://github.com/cloudbase/powershell-yaml/blob/master/LICENSE'
         ProjectUri   = 'https://github.com/cloudbase/powershell-yaml'
         ReleaseNotes = @'
+# 0.4.11
+
+Bugfixes:
+* Fix nested PSCustomObjects in hashtables by @gabriel-samfira in https://github.com/cloudbase/powershell-yaml/pull/169
+* Use decimal as first option when parsing floats by @gabriel-samfira in https://github.com/cloudbase/powershell-yaml/pull/170. Thanks @amis92 for the suggestion!
+* Fix lint errors by @gabriel-samfira in https://github.com/cloudbase/powershell-yaml/pull/172
+* Use decimals instead of double for tagged floats by @gabriel-samfira in https://github.com/cloudbase/powershell-yaml/pull/174
+
+Misc:
+* Add aditional tests by @gabriel-samfira in https://github.com/cloudbase/powershell-yaml/pull/171
+* Update README.md by @gabriel-samfira in https://github.com/cloudbase/powershell-yaml/pull/173
+
 # 0.4.10
 
 Bugfixes:
