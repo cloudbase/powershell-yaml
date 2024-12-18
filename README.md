@@ -243,6 +243,71 @@ True     True     Int64                                    System.ValueType
 
 As you can see, the phone number without tags was cast to ```Int64```. This is most likely not the desired result and a case where tags should be used.
 
+## Controlling output formatting
+
+By default `ConvertTo-Yaml` will output in `Block` style. You can control the output formatting by using `-Options` parameter and specifying one of the following values: `UseFlowStyle` or `UseSequenceFlowStyle`. The `UseFlowStyle` option will output everything in `Flow` style. The `UseSequenceFlowStyle` option will output sequences in `Flow` style and everything else in `Block` style.
+
+Here is an example of using the `UseFlowStyle` option:
+
+```powershell
+Import-Module powershell-yaml
+
+PS C:\> $data = @{
+    "anArray" = @(1, 2, 3)
+    "nested" = @{
+        "array" = @("this", "is", "an", "array")
+    }
+    "hello" = "world"
+}
+
+PS C:\> ConvertTo-Yaml $data -Options UseFlowStyle
+{anArray: [1, 2, 3], nested: {array: [this, is, an, array]}, hello: world}
+```
+
+Here is an example of using the `UseSequenceFlowStyle` option:
+
+```powershell
+PS C:\> ConvertTo-Yaml $data -Options UseSequenceFlowStyle
+
+anArray: [1, 2, 3]
+nested:
+  array: [this, is, an, array]
+hello: world
+```
+
+There is another tweak you can use. When using the default `Block` style, sequences are not indented. You can toggle this by passing in the `WithIndentedSequences` option.
+
+Here are examples with and without indented sequences:
+
+```powershell
+PS C:\> ConvertTo-Yaml $data
+anArray:
+- 1
+- 2
+- 3
+nested:
+  array:
+  - this
+  - is
+  - an
+  - array
+hello: world
+
+
+PS C:\> ConvertTo-Yaml $data -Options WithIndentedSequences
+anArray:
+  - 1
+  - 2
+  - 3
+nested:
+  array:
+    - this
+    - is
+    - an
+    - array
+hello: world
+```
+
 ## Running the tests
 
 Before running the associated unit tests; please make sure you have
