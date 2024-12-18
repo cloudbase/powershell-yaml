@@ -342,20 +342,26 @@ wishlist:
     - product     : A Cool Book.
       quantity    : 1
       description : I love that Cool Book.
-      aStringTatLooksLikeAFloat: 55,34
-      aStringThatLooksLikeAnInt: 2018+
-      scientificNotationInt: 1e+3
-      scientificNotationBigInt: 1e+40
-      intWithTag: !!int "42"
-      zeroIntWithTag: !!int "0"
-      zeroIntWithoutTag: 0
-      scientificNotationIntWithTag: !!int "1e+3"
       price       : 55.34
 total: 4443.52
 int64: $([int64]::MaxValue)
 note: >
     I can't wait.
     To get that Cool Book.
+
+intsAndDecimals:
+    aStringTatLooksLikeAFloat: 55,34
+    aStringThatLooksLikeAnInt: 2018+
+    scientificNotationInt: 1e+3
+    scientificNotationBigInt: 1e+40
+    intWithTag: !!int "42"
+    zeroIntWithTag: !!int "0"
+    zeroIntWithoutTag: 0
+    scientificNotationIntWithTag: !!int "1e+3"
+    aDecimalWithATag: !!float "3.9999999999999990"
+    aDecimalWithoutATag: 3.9999999999999990
+    decimalInfinity: !!float ".inf"
+    decimalNegativeInfinity: !!float "-.inf"
 
 dates:
     - !!timestamp 2001-12-15T02:59:43.1Z
@@ -392,7 +398,10 @@ bools:
                             quantity = 1;
                             description = "I love that Cool Book.";
                             price = 55.34;
-                            aStringTatLooksLikeAFloat = "55,34"
+                        }
+                    );
+                    intsAndDecimals = @{
+                            aStringTatLooksLikeAFloat = "55,34";
                             aStringThatLooksLikeAnInt = "2018+"
                             scientificNotationInt = [int32]1000
                             scientificNotationBigInt = [System.Numerics.BigInteger]::Parse("10000000000000000000000000000000000000000")
@@ -400,8 +409,11 @@ bools:
                             zeroIntWithTag = 0
                             zeroIntWithoutTag = 0
                             scientificNotationIntWithTag = 1000
-                        }
-                    );
+                            aDecimalWithATag = [decimal]::Parse("3.9999999999999990", [System.Globalization.CultureInfo]::InvariantCulture)
+                            aDecimalWithoutATag = [decimal]::Parse("3.9999999999999990", [System.Globalization.CultureInfo]::InvariantCulture)
+                            decimalInfinity = [double]::PositiveInfinity
+                            decimalNegativeInfinity = [double]::NegativeInfinity
+                    }
                     total = 4443.52;
                     int64 = ([int64]::MaxValue);
                     note = ("I can't wait. To get that Cool Book.`n");
@@ -444,24 +456,37 @@ bools:
                 $product['quantity'] | Should -Be $expectedProduct['quantity']
                 $product['description'] | Should -Be $expectedProduct['description']
                 $product['price'] | Should -Be $expectedProduct['price']
-                $product['aStringTatLooksLikeAFloat'] | Should -Be $expectedProduct['aStringTatLooksLikeAFloat']
-                $product['aStringTatLooksLikeAFloat'] | Should -BeOfType ([string])
-                $product['aStringThatLooksLikeAnInt'] | Should -Be $expectedProduct['aStringThatLooksLikeAnInt']
-                $product['aStringThatLooksLikeAnInt'] | Should -BeOfType ([string])
-                $product['zeroIntWithTag'] | Should -Be $expectedProduct['zeroIntWithTag']
-                $product['zeroIntWithTag'] | Should -BeOfType ([int32])
-                $product['zeroIntWithoutTag'] | Should -Be $expectedProduct['zeroIntWithoutTag']
-                $product['zeroIntWithoutTag'] | Should -BeOfType ([int32])
-                $product['scientificNotationInt'] | Should -Be $expectedProduct['scientificNotationInt']
-                $product['scientificNotationInt'] | Should -BeOfType ([int32])
-                $product['scientificNotationBigInt'] | Should -Be $expectedProduct['scientificNotationBigInt']
-                $product['scientificNotationBigInt'] | Should -BeOfType ([System.Numerics.BigInteger])
-                $product['intWithTag'] | Should -Be $expectedProduct['intWithTag']
-                $product['intWithTag'] | Should -BeOfType ([int32])
-                $product['scientificNotationIntWithTag'] | Should -Be $expectedProduct['scientificNotationIntWithTag']
-                $product['scientificNotationIntWithTag'] | Should -BeOfType ([int32])
+
                 $res['total'] | Should -Be $expected['total']
                 $res['note'] | Should -Be $expected['note']
+
+                $expectedIntsAndDecimals = $expected['intsAndDecimals']
+
+                $intsAndDecimals = $res['intsAndDecimals']
+                $intsAndDecimals['aStringTatLooksLikeAFloat'] | Should -Be $expectedIntsAndDecimals['aStringTatLooksLikeAFloat']
+                $intsAndDecimals['aStringTatLooksLikeAFloat'] | Should -BeOfType ([string])
+                $intsAndDecimals['aStringThatLooksLikeAnInt'] | Should -Be $expectedIntsAndDecimals['aStringThatLooksLikeAnInt']
+                $intsAndDecimals['aStringThatLooksLikeAnInt'] | Should -BeOfType ([string])
+                $intsAndDecimals['zeroIntWithTag'] | Should -Be $expectedIntsAndDecimals['zeroIntWithTag']
+                $intsAndDecimals['zeroIntWithTag'] | Should -BeOfType ([int32])
+                $intsAndDecimals['zeroIntWithoutTag'] | Should -Be $expectedIntsAndDecimals['zeroIntWithoutTag']
+                $intsAndDecimals['zeroIntWithoutTag'] | Should -BeOfType ([int32])
+                $intsAndDecimals['scientificNotationInt'] | Should -Be $expectedIntsAndDecimals['scientificNotationInt']
+                $intsAndDecimals['scientificNotationInt'] | Should -BeOfType ([int32])
+                $intsAndDecimals['scientificNotationBigInt'] | Should -Be $expectedIntsAndDecimals['scientificNotationBigInt']
+                $intsAndDecimals['scientificNotationBigInt'] | Should -BeOfType ([System.Numerics.BigInteger])
+                $intsAndDecimals['intWithTag'] | Should -Be $expectedIntsAndDecimals['intWithTag']
+                $intsAndDecimals['intWithTag'] | Should -BeOfType ([int32])
+                $intsAndDecimals['scientificNotationIntWithTag'] | Should -Be $expectedIntsAndDecimals['scientificNotationIntWithTag']
+                $intsAndDecimals['scientificNotationIntWithTag'] | Should -BeOfType ([int32])
+                $intsAndDecimals['aDecimalWithATag'] | Should -Be $expectedIntsAndDecimals['aDecimalWithATag']
+                $intsAndDecimals['aDecimalWithATag'] | Should -BeOfType ([decimal])
+                $intsAndDecimals['aDecimalWithoutATag'] | Should -Be $expectedIntsAndDecimals['aDecimalWithoutATag']
+                $intsAndDecimals['aDecimalWithoutATag'] | Should -BeOfType ([decimal])
+                $intsAndDecimals['decimalInfinity'] | Should -Be $expectedIntsAndDecimals['decimalInfinity']
+                $intsAndDecimals['decimalInfinity'] | Should -BeOfType ([double])
+                $intsAndDecimals['decimalNegativeInfinity'] | Should -Be $expectedIntsAndDecimals['decimalNegativeInfinity']
+                $intsAndDecimals['decimalNegativeInfinity'] | Should -BeOfType ([double])
 
                 $res['dates'] | Should -Not -BeNullOrEmpty
                 $res['dates'].Count | Should -Be $expected['dates'].Count
