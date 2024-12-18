@@ -218,7 +218,7 @@ function Convert-ValueToProperType {
                 }
                 return $parsedValue
             }
-            $types = @([double], [decimal])
+            $types = @([decimal], [double])
             foreach($i in $types){
                 $parsedValue = New-Object -TypeName $i.FullName
                 $result = $i::TryParse($Node, [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)

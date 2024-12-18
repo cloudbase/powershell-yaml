@@ -703,6 +703,7 @@ bools:
 bigInt: 99999999999999999999999999999999999
 int32: 2147483647
 int64: 9223372036854775807
+decimal: 3.10
 '@
         }
 
@@ -711,11 +712,19 @@ int64: 9223372036854775807
             $result.bigInt | Should -BeOfType System.Numerics.BigInteger
         }
 
+        It "Should round-trip decimals with trailing 0" {
+            $result = ConvertFrom-Yaml -Yaml $value
+            $result.decimal | Should -Be ([decimal]3.10)
+
+            ConvertTo-Yaml $result["decimal"] | Should -Be "3.10$([Environment]::NewLine)"
+        }
+
         It 'Should be of proper type and value' {
             $result = ConvertFrom-Yaml -Yaml $value
             $result.bigInt | Should -Be ([System.Numerics.BigInteger]::Parse("99999999999999999999999999999999999"))
             $result.int32 | Should -Be ([int32]2147483647)
             $result.int64 | Should -Be ([int64]9223372036854775807)
+            $result.decimal | Should -Be ([decimal]3.10)
         }
     }
 
