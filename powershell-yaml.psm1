@@ -34,7 +34,7 @@ function Invoke-LoadFile {
         [string]$assemblyPath
     )
 
-    $global:powershellYamlDotNetAssemblyPath = Join-Path $assemblyPath "YamlDotNet.dll"
+    $powershellYamlDotNetAssemblyPath = Join-Path $assemblyPath "YamlDotNet.dll"
     $serializerAssemblyPath = Join-Path $assemblyPath "PowerShellYamlSerializer.dll"
     $yamlAssembly = [Reflection.Assembly]::LoadFile($powershellYamlDotNetAssemblyPath)
     $serializerAssembly = [Reflection.Assembly]::LoadFile($serializerAssemblyPath)
@@ -42,25 +42,32 @@ function Invoke-LoadFile {
     if ($PSVersionTable['PSEdition'] -eq 'Core') {
         # Register the AssemblyResolve event to load dependencies manually. This seems to be needed only on
         # PowerShell Core.
-        [System.AppDomain]::CurrentDomain.add_AssemblyResolve({
+        $resolver = {
             param ($snd, $e)
+            # This event only needs to run once when the Invoke-LoadFile function is called.
+            # If it's called again, the variables defined in this functions will not be available,
+            # so we can safely ignore the event.
+            if (-not $serializerAssemblyPath -or -not $powershellYamlDotNetAssemblyPath) {
+                return $null
+            }
             # Load YamlDotNet if it's requested by PowerShellYamlSerializer. Ignore other requests as they might
             # originate from other assemblies that are not part of this module and which might have different
             # versions of the module that they need to load.
-            if ($e.Name -like "*YamlDotNet*" -and $e.RequestingAssembly -like "*PowerShellYamlSerializer*" ) {
+            if ($e.Name -match "^YamlDotNet,*" -and $e.RequestingAssembly.Location -eq  $serializerAssemblyPath) {
                 return [System.Reflection.Assembly]::LoadFile($powershellYamlDotNetAssemblyPath)
             }
 
             return $null
-        })
+        }
+        [System.AppDomain]::CurrentDomain.add_AssemblyResolve($resolver)
         # Load the StringQuotingEmitter from PowerShellYamlSerializer to force the resolver handler to fire once.
-        # This will load the YamlDotNet assembly and expand the global variable $powershellYamlDotNetAssemblyPath.
-        # We then remove it to avoid polluting the global scope.
         # This is an ugly hack I am not happy with.
         $serializerAssembly.GetType("StringQuotingEmitter") | Out-Null
+
+        # Remove the resolver handler after it has been used.
+        [System.AppDomain]::CurrentDomain.remove_AssemblyResolve($resolver)
     }
 
-    Remove-Variable -Name powershellYamlDotNetAssemblyPath -Scope Global
     return @{ "yaml"= $yamlAssembly; "quoted" = $serializerAssembly }
 }
 
