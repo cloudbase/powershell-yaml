@@ -25,13 +25,18 @@
 RootModule = 'powershell-yaml.psm1'
 
 # Version number of this module.
-ModuleVersion = '0.4.11'
+ModuleVersion = '0.4.12'
 
 PrivateData = @{
     PSData = @{
         LicenseUri   = 'https://github.com/cloudbase/powershell-yaml/blob/master/LICENSE'
         ProjectUri   = 'https://github.com/cloudbase/powershell-yaml'
         ReleaseNotes = @'
+# 0.4.12
+
+Bugfixes:
+* Fix potential erroneous load of assembly by @gabriel-samfira in https://github.com/cloudbase/powershell-yaml/pull/180
+
 # 0.4.11
 
 Bugfixes:
