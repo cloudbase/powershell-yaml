@@ -121,6 +121,74 @@ anArrayKey: [1, 2, 3]
         }
     }
 
+    Describe "Test serialized depth" {
+        Context "Deeply nested objects are serialized correctly" {
+            It "Should deserialize the entire object" {
+                $data = @"
+children:
+  appliance:
+    bla:
+      bla2:
+        bla3:
+          bla4:
+            bla5:
+              bla6:
+                bla7:
+                  bla8:
+                    bla9:
+                      bla10:
+                        bla11:
+                          bla12:
+                            bla13:
+                              bla14:
+                                bla15:
+                                  bla16:
+                                    bla17:
+                                      bla18:
+                                        bla19:
+                                          bla20:
+                                            bla21:
+                                              bla22:
+                                                bla23:
+                                                  bla24:
+                                                    bla25:
+                                                      bla26:
+                                                        bla27:
+                                                          bla28:
+                                                            bla29:
+                                                              bla30:
+                                                                bla31:
+                                                                  bla32:
+                                                                    bla33:
+                                                                      bla34:
+                                                                        bla35:
+                                                                          bla36:
+                                                                            bla37:
+                                                                              bla38:
+                                                                                bla39:
+                                                                                  bla40:
+                                                                                    bla41:
+                                                                                      bla42:
+                                                                                        bla43:
+                                                                                          bla44:
+                                                                                            bla45:
+                                                                                              bla46:
+                                                                                                bla47:
+                                                                                                  bla48:
+                                                                                                    bla49:
+                                                                                                      bla50:
+                                                                                                        bla51:
+                                                                                                        - 192.168.0.1
+                                                                                                        - 192.168.0.2
+                                                                                                        - 192.168.0.3
+
+"@
+                $result = cfy $data | cty
+                Assert-Equivalent -Options $compareStrictly -Expected $data -Actual $result
+            }
+        }
+    }
+
     Describe "Test PSCustomObject wrapped values are serialized correctly" {
         Context "A PSCustomObject containing nested PSCustomObjects" {
             It "Should serialize correctly" {
