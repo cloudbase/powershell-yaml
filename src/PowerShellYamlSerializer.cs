@@ -124,6 +124,10 @@ public class PSObjectTypeConverter : IYamlTypeConverter {
 
     public void WriteYaml(IEmitter emitter, object value, Type type, ObjectSerializer serializer) {
         var psObj = (PSObject)value;
+        if (!typeof(IDictionary).IsAssignableFrom(psObj.BaseObject.GetType()) && !typeof(PSCustomObject).IsAssignableFrom(psObj.BaseObject.GetType())) {
+            serializer(psObj.BaseObject, psObj.BaseObject.GetType());
+            return;
+        }
         var mappingStyle = this.useFlowStyle ? MappingStyle.Flow : MappingStyle.Block;
         emitter.Emit(new MappingStart(AnchorName.Empty, TagName.Empty, true, mappingStyle));
         foreach (var prop in psObj.Properties) {

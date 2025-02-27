@@ -1,4 +1,4 @@
-# Copyright 2016-2024 Cloudbase Solutions Srl
+﻿# Copyright 2016-2024 Cloudbase Solutions Srl
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -190,6 +190,22 @@ children:
     }
 
     Describe "Test PSCustomObject wrapped values are serialized correctly" {
+        Context "A PSCustomObject that contains an array of PSObjects" {
+            It "Should serialize correctly" {
+                $expected = @"
+yamlList:
+- item1
+- item2
+
+"@
+                $data = ConvertFrom-YAml "yamlList: []" | ConvertTo-JSON -Depth 3 | ConvertFrom-Json
+                $jsData = '["item1", "item2"]'
+                $data.yamlList = $jsData | ConvertFrom-Json
+
+                $asYaml = ConvertTo-Yaml $data
+                Assert-Equivalent -Options $compareStrictly -Expected $expected -Actual $asYaml
+            }
+        }
         Context "A PSCustomObject containing nested PSCustomObjects" {
             It "Should serialize correctly" {
                 $expectBigInt = [System.Numerics.BigInteger]::Parse("9999999999999999999999999999999999999999999999999")
