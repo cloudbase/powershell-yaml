@@ -83,7 +83,7 @@ Description = 'Powershell module for serializing and deserializing YAML'
 PowerShellVersion = '5.0'
 
 # Functions to export from this module
-FunctionsToExport = "ConvertTo-Yaml","ConvertFrom-Yaml"
+FunctionsToExport = "ConvertTo-Yaml","ConvertFrom-Yaml","New-PowershellYamlMultiDocument"
 
 AliasesToExport = "cfy","cty"
 }
