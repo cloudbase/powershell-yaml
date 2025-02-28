@@ -430,6 +430,61 @@ function Get-Serializer {
     return $builder.Build()
 }
 
+class PowershellYamlMultiDocument {
+    [System.Collections.Generic.List[object]]$Documents
+    PowershellYamlMultiDocument([System.Object[]]$Objects) {
+        if ($Objects -eq $null) {
+            $Objects = [System.Collections.Generic.List[object]](New-Object "System.Collections.Generic.List[object]")
+        }
+        $this.Documents = $Objects
+    }
+
+    [void]Add($Document) {
+        $this.Documents.Add($Document)
+    }
+
+    [void]Clear() {
+        $this.Documents.Clear()
+    }
+
+    [int]Count() {
+        return $this.Documents.Count
+    }
+
+    [object]GetDocument($Index) {
+        return $this.Documents[$Index]
+    }
+
+    [object]GetDocuments() {
+        return $this.Documents
+    }
+
+    [object]Remove($Index) {
+        return $this.Documents.RemoveAt($Index)
+    }
+
+    [object]RemoveAll() {
+        return $this.Documents.Clear()
+    }
+
+    [object]SetDocument($Index, $Document) {
+        return $this.Documents[$Index] = $Document
+    }
+
+    [object]SetDocuments($Documents) {
+        return $this.Documents = $Documents
+    }
+}
+
+function New-PowershellYamlMultiDocument {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$false, ValueFromPipeline=$false)]
+        [System.Object[]]$Objects
+    )
+    return [PowershellYamlMultiDocument]::new($Objects)
+}
+
 function ConvertTo-Yaml {
     [CmdletBinding(DefaultParameterSetName = 'NoOptions')]
     Param(
@@ -461,10 +516,19 @@ function ConvertTo-Yaml {
         if ($d -eq $null -or $d.Count -eq 0) {
             return
         }
-        if ($d.Count -eq 1 -and !($KeepArray)) {
-            $d = $d[0]
+        $hasMultiDocument = $false
+        $hasNonMultiDocument = $false
+        foreach ($doc in $d) {
+            if ($doc.GetType().FullName -eq "PowershellYamlMultiDocument") {
+                $hasMultiDocument = $true
+            } else {
+                $hasNonMultiDocument = $true
+            }
         }
-        $norm = Convert-PSObjectToGenericObject $d
+        if ($hasMultiDocument -and $hasNonMultiDocument) {
+            Throw "Cannot mix multi-document and single-document data"
+        }
+
         if ($OutFile) {
             $parent = Split-Path $OutFile
             if (!(Test-Path $parent)) {
@@ -488,17 +552,33 @@ function ConvertTo-Yaml {
 
         try {
             $serializer = Get-Serializer $Options
-            $serializer.Serialize($wrt, $norm)
+        } catch {
+            $wrt.Close()
+            Throw $_
         }
-        catch{
-            $_
-        }
-        finally {
+
+        try {
+            if($hasMultiDocument){
+                foreach ($doc in $d) {
+                    if ($doc.GetType().FullName -eq "PowershellYamlMultiDocument") {
+                        foreach ($subdoc in $doc.GetDocuments()) {
+                            $norm = Convert-PSObjectToGenericObject $subdoc
+                            $wrt.WriteLine("---")
+                            $serializer.Serialize($wrt, $norm)
+                        }
+                    }
+                }
+            } else {
+                if ($d.Count -eq 1 -and !($KeepArray)) {
+                    $d = $d[0]
+                }
+                $norm = Convert-PSObjectToGenericObject $d
+                $serializer.Serialize($wrt, $norm)
+            }
+        } finally {
             $wrt.Close()
         }
-        if ($OutFile) {
-            return
-        } else {
+        if (!($OutFile)) {
             return $wrt.ToString()
         }
     }
@@ -508,3 +588,4 @@ New-Alias -Name cfy -Value ConvertFrom-Yaml
 New-Alias -Name cty -Value ConvertTo-Yaml
 
 Export-ModuleMember -Function ConvertFrom-Yaml,ConvertTo-Yaml -Alias cfy,cty
+Export-ModuleMember -Function New-PowershellYamlMultiDocument
