@@ -17,7 +17,7 @@ $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 dotnet build --configuration Release $here/src/
 
-$destinations = @("netstandard2.1", "net47")
+$destinations = @("netstandard2.0")
 
 foreach ($item in $destinations) {
     $src = Join-Path $here "src" "bin" "Release" $item "PowerShellYamlSerializer.dll"
