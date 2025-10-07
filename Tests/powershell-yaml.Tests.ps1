@@ -1080,12 +1080,12 @@ reallyLongDecimal: 3.9999999999999990
         It 'can be compiled on import with <_>/YamlDotNet.dll loaded' -ForEach $targetFrameworks {
             $targetFramework = $_
             $yamlDotnetAssemblyPath =
-                Join-Path -Path $TestDrive -ChildPath "YamlDotNet-11.2.1\lib\${targetFramework}\YamlDotNet.dll" -Resolve
+                Join-Path -Path $TestDrive -ChildPath "YamlDotNet-16.3.0\lib\${targetFramework}\YamlDotNet.dll" -Resolve
             $modulePath = Join-Path -Path $PSScriptRoot -ChildPath '..\powershell-yaml.psd1' -Resolve
 
             {
                 # Do this in the background because YamlDotNet.dll is already loaded in this session and the way we
-                # found to reproduce this issue is by loading YamlDotNet 11.2.1 then importing powershell-yaml.
+                # found to reproduce this issue is by loading YamlDotNet 16.3.0 then importing powershell-yaml.
                 Start-Job {
                     $yamlDotnetAssemblyPath = $using:yamlDotnetAssemblyPath
                     $modulePath = $using:modulePath

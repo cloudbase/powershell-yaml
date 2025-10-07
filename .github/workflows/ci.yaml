@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-2019, windows-2022]
+        os: [windows-latest]
 
     steps:
       - uses: actions/checkout@v3
@@ -40,7 +40,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, ubuntu-24.04, macos-latest, windows-2019, windows-2022]
+        os: [macos-latest, ubuntu-latest, windows-latest]
     
     steps:
       - uses: actions/checkout@v3
