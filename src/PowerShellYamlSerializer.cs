@@ -76,7 +76,7 @@ public class IDictionaryTypeConverter :  IYamlTypeConverter {
         emitter.Emit(new MappingStart(AnchorName.Empty, TagName.Empty, true, mappingStyle));
         foreach (DictionaryEntry entry in hObj) {
             if(entry.Value == null) {
-                if (this.omitNullValues == true) {
+                if (this.omitNullValues) {
                     continue;
                 }
                 serializer(entry.Key, entry.Key.GetType());
@@ -87,10 +87,12 @@ public class IDictionaryTypeConverter :  IYamlTypeConverter {
             var objType = entry.Value.GetType();
             var val = entry.Value;
             if (entry.Value is PSObject nestedObj) {
-                var nestedType = nestedObj.BaseObject.GetType();
-                if (nestedType != typeof(System.Management.Automation.PSCustomObject)) {
-                    objType = nestedObj.BaseObject.GetType();
-                    val = nestedObj.BaseObject;
+                if (nestedObj.BaseObject != null) {
+                    var nestedType = nestedObj.BaseObject.GetType();
+                    if (nestedType != typeof(System.Management.Automation.PSCustomObject)) {
+                        objType = nestedObj.BaseObject.GetType();
+                        val = nestedObj.BaseObject;
+                    }
                 }
                 serializer(val, objType);
             } else {
@@ -132,7 +134,7 @@ public class PSObjectTypeConverter : IYamlTypeConverter {
         emitter.Emit(new MappingStart(AnchorName.Empty, TagName.Empty, true, mappingStyle));
         foreach (var prop in psObj.Properties) {
             if (prop.Value == null) {
-                if (this.omitNullValues == true) {
+                if (this.omitNullValues) {
                     continue;
                 }
                 serializer(prop.Name, prop.Name.GetType());
@@ -142,10 +144,12 @@ public class PSObjectTypeConverter : IYamlTypeConverter {
                 var objType = prop.Value.GetType();
                 var val = prop.Value;
                 if (prop.Value is PSObject nestedPsObj) {
-                    var nestedType = nestedPsObj.BaseObject.GetType();
-                    if (nestedType != typeof(System.Management.Automation.PSCustomObject)) {
-                        objType = nestedPsObj.BaseObject.GetType();
-                        val = nestedPsObj.BaseObject;
+                    if (nestedPsObj.BaseObject != null) {
+                        var nestedType = nestedPsObj.BaseObject.GetType();
+                        if (nestedType != typeof(System.Management.Automation.PSCustomObject)) {
+                            objType = nestedPsObj.BaseObject.GetType();
+                            val = nestedPsObj.BaseObject;
+                        }
                     }
                 }
                 serializer(val, objType);
@@ -197,7 +201,7 @@ public class FlowStyleAllEmitter: ChainedEventEmitter {
 
     public override void Emit(SequenceStartEventInfo eventInfo, IEmitter emitter){
         eventInfo.Style = SequenceStyle.Flow;
-        nextEmitter.Emit(eventInfo, emitter);
+        base.Emit(eventInfo, emitter);
     }
 }
 
@@ -206,11 +210,11 @@ public class FlowStyleSequenceEmitter: ChainedEventEmitter {
 
     public override void Emit(SequenceStartEventInfo eventInfo, IEmitter emitter){
         eventInfo.Style = SequenceStyle.Flow;
-        nextEmitter.Emit(eventInfo, emitter);
+        base.Emit(eventInfo, emitter);
     }
 }
 
-class BuilderUtils {
+public class BuilderUtils {
     public static SerializerBuilder BuildSerializer(
         SerializerBuilder builder,
         bool omitNullValues = false,
@@ -218,7 +222,7 @@ class BuilderUtils {
         bool useSequenceFlowStyle = false,
         bool jsonCompatible = false) {
 
-        if (jsonCompatible == true) {
+        if (jsonCompatible) {
             useFlowStyle = true;
             useSequenceFlowStyle = true;
         }
@@ -228,14 +232,14 @@ class BuilderUtils {
             .WithTypeConverter(new BigIntegerTypeConverter())
             .WithTypeConverter(new IDictionaryTypeConverter(omitNullValues, useFlowStyle))
             .WithTypeConverter(new PSObjectTypeConverter(omitNullValues, useFlowStyle));
-        if (omitNullValues == true) {
+        if (omitNullValues) {
             builder = builder
                 .WithEmissionPhaseObjectGraphVisitor(args => new NullValueGraphVisitor(args.InnerVisitor));
         }
-        if (useFlowStyle == true) {
+        if (useFlowStyle) {
             builder = builder.WithEventEmitter(next => new FlowStyleAllEmitter(next));
         }
-        if (useSequenceFlowStyle == true) {
+        if (useSequenceFlowStyle) {
             builder = builder.WithEventEmitter(next => new FlowStyleSequenceEmitter(next));
         }
 

@@ -357,9 +357,7 @@ function ConvertFrom-Yaml {
         $d = ''
     }
     process {
-        if ($Yaml -is [string]) {
-            $d += $Yaml + "`n"
-        }
+        $d += $Yaml + "`n"
     }
 
     end {
@@ -435,8 +433,7 @@ function ConvertTo-Yaml {
 
         [Parameter(ParameterSetName = 'NoOptions')]
         [switch]$JsonCompatible,
-        [switch]$UseFlowStyle,
-        
+
         [switch]$KeepArray,
 
         [switch]$Force
@@ -450,7 +447,7 @@ function ConvertTo-Yaml {
         }
     }
     end {
-        if ($d -eq $null -or $d.Count -eq 0) {
+        if ($null -eq $d -or $d.Count -eq 0) {
             return
         }
         if ($d.Count -eq 1 -and !($KeepArray)) {
@@ -465,11 +462,8 @@ function ConvertTo-Yaml {
             if ((Test-Path $OutFile) -and !$Force) {
                 throw 'Target file already exists. Use -Force to overwrite.'
             }
-            $wrt = New-Object 'System.IO.StreamWriter' $OutFile
-        } else {
-            $wrt = New-Object 'System.IO.StringWriter'
         }
-    
+
         if ($PSCmdlet.ParameterSetName -eq 'NoOptions') {
             $Options = 0
             if ($JsonCompatible) {
@@ -478,18 +472,25 @@ function ConvertTo-Yaml {
             }
         }
 
+        if ($OutFile) {
+            $wrt = New-Object 'System.IO.StreamWriter' $OutFile
+        } else {
+            $wrt = New-Object 'System.IO.StringWriter'
+        }
+
         try {
             $serializer = Get-Serializer $Options
             $serializer.Serialize($wrt, $norm)
-        } catch {
-            $_
+
+            if ($OutFile) {
+                return
+            } else {
+                return $wrt.ToString()
+            }
         } finally {
-            $wrt.Close()
-        }
-        if ($OutFile) {
-            return
-        } else {
-            return $wrt.ToString()
+            if ($null -ne $wrt) {
+                $wrt.Dispose()
+            }
         }
     }
 }
