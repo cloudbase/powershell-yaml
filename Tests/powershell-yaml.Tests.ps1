@@ -1065,9 +1065,9 @@ reallyLongDecimal: 3.9999999999999990
 
     Describe 'StringQuotingEmitter' {
         BeforeAll {
-            $oldYamlPkgUrl = 'https://www.nuget.org/api/v2/package/YamlDotNet/11.2.1'
-            $pkgPath = Join-Path -Path $TestDrive -ChildPath 'YamlDotNet-11.2.1.nupkg'
-            $oldYamlPkgDirPath = Join-Path -Path $TestDrive -ChildPath 'YamlDotNet-11.2.1'
+            $oldYamlPkgUrl = 'https://www.nuget.org/api/v2/package/YamlDotNet/16.3.0'
+            $pkgPath = Join-Path -Path $TestDrive -ChildPath 'YamlDotNet-16.3.0.nupkg'
+            $oldYamlPkgDirPath = Join-Path -Path $TestDrive -ChildPath 'YamlDotNet-16.3.0'
             $ProgressPreference = 'SilentlyContinue'
             Invoke-WebRequest -Uri $oldYamlPkgUrl -UseBasicParsing -OutFile $pkgPath
             New-Item -Path $oldYamlPkgDirPath -ItemType Directory
@@ -1075,21 +1075,17 @@ reallyLongDecimal: 3.9999999999999990
             [IO.Compression.ZipFile]::ExtractToDirectory($pkgPath, $oldYamlPkgDirPath)
         }
 
-        $targetFrameworks = @('net45', 'netstandard1.3')
-        if ($PSVersionTable['PSEdition'] -eq 'Core')
-        {
-            $targetFrameworks = @('netstandard1.3', 'netstandard2.1')
-        }
+        $targetFrameworks = @('netstandard2.0')
 
         It 'can be compiled on import with <_>/YamlDotNet.dll loaded' -ForEach $targetFrameworks {
             $targetFramework = $_
             $yamlDotnetAssemblyPath =
-                Join-Path -Path $TestDrive -ChildPath "YamlDotNet-11.2.1\lib\${targetFramework}\YamlDotNet.dll" -Resolve
+                Join-Path -Path $TestDrive -ChildPath "YamlDotNet-16.3.0\lib\${targetFramework}\YamlDotNet.dll" -Resolve
             $modulePath = Join-Path -Path $PSScriptRoot -ChildPath '..\powershell-yaml.psd1' -Resolve
 
             {
                 # Do this in the background because YamlDotNet.dll is already loaded in this session and the way we
-                # found to reproduce this issue is by loading YamlDotNet 11.2.1 then importing powershell-yaml.
+                # found to reproduce this issue is by loading YamlDotNet 16.3.0 then importing powershell-yaml.
                 Start-Job {
                     $yamlDotnetAssemblyPath = $using:yamlDotnetAssemblyPath
                     $modulePath = $using:modulePath
