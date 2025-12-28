@@ -1,4 +1,4 @@
-# Copyright 2016-2024 Cloudbase Solutions Srl
+# Copyright 2016-2026 Cloudbase Solutions Srl
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -25,13 +25,35 @@
 RootModule = 'powershell-yaml.psm1'
 
 # Version number of this module.
-ModuleVersion = '0.4.12'
+ModuleVersion = '0.5.0'
 
 PrivateData = @{
     PSData = @{
+        Prerelease   = 'beta1'
         LicenseUri   = 'https://github.com/cloudbase/powershell-yaml/blob/master/LICENSE'
         ProjectUri   = 'https://github.com/cloudbase/powershell-yaml'
         ReleaseNotes = @'
+# 0.5.0
+
+New Features:
+* Type-safe YAML deserialization using PowerShell classes inheriting from YamlBase
+* Round-trip preservation of comments, tags, and scalar styles
+* [YamlKey] attribute to map custom YAML keys to properties
+* Duplicate key detection prevents silent data loss
+* Enhanced PSCustomObject mode with metadata preservation
+* Validation for non-YamlBase nested classes with clear error messages
+* Automatic property name conversion (PascalCase -> hyphenated-case)
+
+Usage:
+  # PSCustomObject mode with metadata
+  $obj = $yaml | ConvertFrom-Yaml -As ([PSCustomObject])
+
+  # Typed mode with YamlBase classes
+  class MyConfig : YamlBase { [string]$Name }
+  $config = $yaml | ConvertFrom-Yaml -As ([MyConfig])
+
+See examples/ for detailed usage patterns.
+
 # 0.4.12
 
 Bugfixes:
@@ -74,7 +96,7 @@ Author = 'Gabriel Adrian Samfira','Alessandro Pilotti'
 CompanyName = 'Cloudbase Solutions SRL'
 
 # Copyright statement for this module
-Copyright = '(c) 2016-2024 Cloudbase Solutions SRL. All rights reserved.'
+Copyright = '(c) 2016-2026 Cloudbase Solutions SRL. All rights reserved.'
 
 # Description of the functionality provided by this module
 Description = 'Powershell module for serializing and deserializing YAML'
@@ -82,8 +104,34 @@ Description = 'Powershell module for serializing and deserializing YAML'
 # Minimum version of the Windows PowerShell engine required by this module
 PowerShellVersion = '5.0'
 
+# Load PowerShellYaml.dll before parsing the module
+# This makes YamlBase available for class inheritance in user scripts
+RequiredAssemblies = @('lib/netstandard2.0/PowerShellYaml.dll')
+
 # Functions to export from this module
-FunctionsToExport = "ConvertTo-Yaml","ConvertFrom-Yaml"
+FunctionsToExport = @(
+    "ConvertTo-Yaml",
+    "ConvertFrom-Yaml",
+    "Set-YamlPropertyComment",
+    "Get-YamlPropertyComment",
+    "Set-YamlPropertyScalarStyle",
+    "Test-YamlMetadata"
+)
+
+# Cmdlets to export from this module
+# We don't list any here - the .psm1's Export-ModuleMember controls what gets exported.
+# ConvertFrom-YamlTyped and ConvertTo-YamlTyped are loaded internally but not exported.
+# CmdletsToExport = @()
 
 AliasesToExport = "cfy","cty"
+
+# List of all files packaged with this module
+FileList = @(
+    'powershell-yaml.psd1',
+    'powershell-yaml.psm1',
+    'lib/netstandard2.0/YamlDotNet.dll',
+    'lib/netstandard2.0/PowerShellYamlSerializer.dll',
+    'lib/netstandard2.0/PowerShellYaml.dll',
+    'lib/netstandard2.0/PowerShellYaml.Module.dll'
+)
 }

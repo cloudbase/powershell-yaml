@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- Target netstandard2.0 for PowerShell 5.1+ compatibility -->
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AssemblyName>PowerShellYaml</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <!-- No package dependencies needed - just provides YamlBase class -->
+</Project>

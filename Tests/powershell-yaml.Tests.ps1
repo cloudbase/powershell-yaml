@@ -91,6 +91,150 @@ anArrayKey: [1, 2, 3]
                 Assert-Equivalent -Options $compareStrictly -Expected $expected -Actual $serialized
             }
 
+            It "Should serialize BlockStyle correctly (overrides flow style)" {
+                $obj = [ordered]@{
+                    aStringKey = "test"
+                    anIntKey = 1
+                    anArrayKey = @(1, 2, 3)
+                }
+                # UseBlockStyle should force block style even when combined with UseFlowStyle
+                # Block style takes precedence
+                $expected = @"
+aStringKey: test
+anIntKey: 1
+anArrayKey:
+- 1
+- 2
+- 3
+
+"@
+                # Test with UseBlockStyle alone (should produce block style - the default)
+                $serialized = ConvertTo-Yaml -Options UseBlockStyle $obj
+                Assert-Equivalent -Options $compareStrictly -Expected $expected -Actual $serialized
+
+                # Test UseBlockStyle taking precedence over UseFlowStyle
+                $serialized = ConvertTo-Yaml -Options ([SerializationOptions]::UseFlowStyle -bor [SerializationOptions]::UseBlockStyle) $obj
+                Assert-Equivalent -Options $compareStrictly -Expected $expected -Actual $serialized
+
+                $pso = [pscustomobject]$obj
+                $serialized = ConvertTo-Yaml -Options UseBlockStyle $pso
+                Assert-Equivalent -Options $compareStrictly -Expected $expected -Actual $serialized
+            }
+
+            It "Should serialize SequenceBlockStyle correctly (overrides sequence flow style)" {
+                $obj = [ordered]@{
+                    aStringKey = "test"
+                    anIntKey = 1
+                    anArrayKey = @(1, 2, 3)
+                }
+                # UseSequenceBlockStyle should force block style for sequences even when combined with UseSequenceFlowStyle
+                $expected = @"
+aStringKey: test
+anIntKey: 1
+anArrayKey:
+- 1
+- 2
+- 3
+
+"@
+                # Test with UseSequenceBlockStyle alone
+                $serialized = ConvertTo-Yaml -Options UseSequenceBlockStyle $obj
+                Assert-Equivalent -Options $compareStrictly -Expected $expected -Actual $serialized
+
+                # Test UseSequenceBlockStyle taking precedence over UseSequenceFlowStyle
+                $serialized = ConvertTo-Yaml -Options ([SerializationOptions]::UseSequenceFlowStyle -bor [SerializationOptions]::UseSequenceBlockStyle) $obj
+                Assert-Equivalent -Options $compareStrictly -Expected $expected -Actual $serialized
+
+                $pso = [pscustomobject]$obj
+                $serialized = ConvertTo-Yaml -Options UseSequenceBlockStyle $pso
+                Assert-Equivalent -Options $compareStrictly -Expected $expected -Actual $serialized
+            }
+
+            It "Should convert block style YAML to flow style (legacy mode)" {
+                # Parse block style YAML
+                $blockYaml = @"
+name: TestApp
+version: 1.2.3
+settings:
+  debug: true
+  timeout: 30
+  features:
+  - authentication
+  - logging
+  - monitoring
+
+"@
+                $obj = ConvertFrom-Yaml $blockYaml
+
+                # Convert to flow style
+                $flowYaml = ConvertTo-Yaml -Options UseFlowStyle $obj
+
+                # Should be in flow style (single line with curly braces)
+                $flowYaml | Should -Match "^\{.*name:.*TestApp.*\}"
+                $flowYaml | Should -Match "settings:.*\{.*debug:.*true.*\}"
+
+                # Parse back and verify data integrity
+                $roundTrip = ConvertFrom-Yaml $flowYaml
+                $roundTrip.name | Should -Be "TestApp"
+                $roundTrip.version | Should -Be "1.2.3"
+                $roundTrip.settings.debug | Should -Be $true
+                $roundTrip.settings.timeout | Should -Be 30
+                $roundTrip.settings.features.Count | Should -Be 3
+            }
+
+            It "Should convert flow style YAML to block style (legacy mode)" {
+                # Parse flow style YAML
+                $flowYaml = "{name: TestApp, version: 1.2.3, settings: {debug: true, timeout: 30, features: [authentication, logging, monitoring]}}"
+                $obj = ConvertFrom-Yaml $flowYaml
+
+                # Convert to block style (using UseBlockStyle to override any potential flow settings)
+                $blockYaml = ConvertTo-Yaml -Options UseBlockStyle $obj
+
+                # Should be in block style (multi-line with proper indentation)
+                $blockYaml | Should -Match "name:.*TestApp"
+                $blockYaml | Should -Match "settings:\s*\n\s+\w+:"
+                $blockYaml | Should -Match "features:\s*\n\s*-"
+
+                # Parse back and verify data integrity
+                $roundTrip = ConvertFrom-Yaml $blockYaml
+                $roundTrip.name | Should -Be "TestApp"
+                $roundTrip.version | Should -Be "1.2.3"
+                $roundTrip.settings.debug | Should -Be $true
+                $roundTrip.settings.timeout | Should -Be 30
+                $roundTrip.settings.features.Count | Should -Be 3
+            }
+
+            It "Should convert block sequences to flow sequences (legacy mode)" {
+                # Parse block style with block sequences
+                $blockYaml = @"
+items:
+- apple
+- banana
+- cherry
+metadata:
+  tags:
+  - fruit
+  - fresh
+
+"@
+                $obj = ConvertFrom-Yaml $blockYaml
+
+                # Convert sequences to flow style
+                $flowYaml = ConvertTo-Yaml -Options UseSequenceFlowStyle $obj
+
+                # Sequences should be in flow style [item1, item2]
+                $flowYaml | Should -Match "items: \[apple, banana, cherry\]"
+                $flowYaml | Should -Match "tags: \[fruit, fresh\]"
+
+                # Mappings should still be in block style
+                $flowYaml | Should -Match "metadata:\s*\n\s+tags:"
+
+                # Parse back and verify
+                $roundTrip = ConvertFrom-Yaml $flowYaml
+                $roundTrip.items.Count | Should -Be 3
+                $roundTrip.metadata.tags.Count | Should -Be 2
+            }
+
             It "Should serialize JsonCompatible correctly" {
                 $obj = [ordered]@{
                     aStringKey = "test"

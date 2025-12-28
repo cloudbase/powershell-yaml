@@ -1,4 +1,4 @@
-# Copyright 2016-2024 Cloudbase Solutions Srl
+# Copyright 2016-2026 Cloudbase Solutions Srl
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -25,65 +25,113 @@ enum SerializationOptions {
     OmitNullValues = 64
     UseFlowStyle = 128
     UseSequenceFlowStyle = 256
+    UseBlockStyle = 512
+    UseSequenceBlockStyle = 1024
 }
+
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $infinityRegex = [regex]::new('^[-+]?(\.inf|\.Inf|\.INF)$', 'Compiled, CultureInvariant');
 
-function Invoke-LoadFile {
+function Invoke-LoadAssemblyWithDependencies {
     param(
-        [string]$assemblyPath
+        [Parameter(Mandatory)]
+        [string]$MainAssemblyPath,
+
+        [Parameter(Mandatory)]
+        [hashtable]$Dependencies,
+
+        [string]$ForceLoadTypeName
     )
 
-    $powershellYamlDotNetAssemblyPath = Join-Path $assemblyPath 'YamlDotNet.dll'
-    $serializerAssemblyPath = Join-Path $assemblyPath 'PowerShellYamlSerializer.dll'
-    $yamlAssembly = [Reflection.Assembly]::LoadFile($powershellYamlDotNetAssemblyPath)
-    $serializerAssembly = [Reflection.Assembly]::LoadFile($serializerAssemblyPath)
+    # Load the main assembly via LoadFile (creates anonymous ALC on PS 7+)
+    $mainAssembly = [Reflection.Assembly]::LoadFile($MainAssemblyPath)
 
     if ($PSVersionTable['PSEdition'] -eq 'Core') {
-        # Register the AssemblyResolve event to load dependencies manually. This seems to be needed only on
-        # PowerShell Core.
+        # On PowerShell Core, use AssemblyResolve to manually load dependencies
+        # This is needed because LoadFile doesn't automatically resolve dependencies
         $resolver = {
             param ($snd, $e)
-            # This event only needs to run once when the Invoke-LoadFile function is called.
-            # If it's called again, the variables defined in this functions will not be available,
-            # so we can safely ignore the event.
-            if (-not $serializerAssemblyPath -or -not $powershellYamlDotNetAssemblyPath) {
+
+            # Only respond if we have the necessary paths (from outer scope)
+            if (-not $MainAssemblyPath -or -not $Dependencies) {
                 return $null
             }
-            # Load YamlDotNet if it's requested by PowerShellYamlSerializer. Ignore other requests as they might
-            # originate from other assemblies that are not part of this module and which might have different
-            # versions of the module that they need to load.
-            if ($e.Name -match '^YamlDotNet,*' -and $e.RequestingAssembly.Location -eq $serializerAssemblyPath) {
-                return [System.Reflection.Assembly]::LoadFile($powershellYamlDotNetAssemblyPath)
+
+            # Only respond to requests from our main assembly
+            if ($e.RequestingAssembly.Location -eq $MainAssemblyPath) {
+                # Check each dependency
+                foreach ($dep in $Dependencies.GetEnumerator()) {
+                    if ($e.Name -match "^$($dep.Key),") {
+                        # Dependency can be either a path (string) or an Assembly object
+                        if ($dep.Value -is [string]) {
+                            return [System.Reflection.Assembly]::LoadFile($dep.Value)
+                        } else {
+                            return $dep.Value
+                        }
+                    }
+                }
             }
 
             return $null
         }
-        [System.AppDomain]::CurrentDomain.add_AssemblyResolve($resolver)
-        # Load the StringQuotingEmitter from PowerShellYamlSerializer to force the resolver handler to fire once.
-        # This is an ugly hack I am not happy with.
-        $serializerAssembly.GetType('StringQuotingEmitter') | Out-Null
 
-        # Remove the resolver handler after it has been used.
+        [System.AppDomain]::CurrentDomain.add_AssemblyResolve($resolver)
+
+        # Force dependency resolution by accessing a type
+        if ($ForceLoadTypeName) {
+            $mainAssembly.GetType($ForceLoadTypeName) | Out-Null
+        } else {
+            $mainAssembly.GetTypes() | Out-Null
+        }
+
         [System.AppDomain]::CurrentDomain.remove_AssemblyResolve($resolver)
     }
 
-    return @{ 'yaml' = $yamlAssembly; 'quoted' = $serializerAssembly }
+    return $mainAssembly
 }
 
-function Invoke-LoadAssembly {
-    $libDir = Join-Path $here 'lib'
-    $assemblies = @{
-        'netstandard2.0' = Join-Path $libDir 'netstandard2.0';
+# ============================================================================
+# Assembly Path Configuration
+# ============================================================================
+
+$libDir = Join-Path $here 'lib/netstandard2.0'
+
+# YAML module assemblies
+$yamlDotNetPath = Join-Path $libDir 'YamlDotNet.dll'
+
+# Typed YAML module assemblies (now contains ALL serialization code)
+$typedModulePath = Join-Path $libDir 'PowerShellYaml.Module.dll'
+$typedYamlBasePath = Join-Path $libDir 'PowerShellYaml.dll'
+
+# Load YamlDotNet first (isolated via LoadFile)
+$yamlDotNetAssembly = [Reflection.Assembly]::LoadFile($yamlDotNetPath)
+
+# Load PowerShellYaml.dll (must be in Default ALC for class inheritance)
+$yamlBaseAsm = [System.Reflection.Assembly]::LoadFrom($typedYamlBasePath)
+
+# Load PowerShellYaml.Module.dll early for BuilderUtils access
+# Dependencies: YamlDotNet (isolated) and PowerShellYaml (from Default ALC)
+$script:typedModuleAssembly = Invoke-LoadAssemblyWithDependencies `
+    -MainAssemblyPath $typedModulePath `
+    -Dependencies @{
+        'YamlDotNet' = $yamlDotNetPath
+        'PowerShellYaml' = $yamlBaseAsm
     }
 
-    return (Invoke-LoadFile -assemblyPath $assemblies['netstandard2.0'])
-}
+# Store types for use throughout the module
+$script:BuilderUtils = $script:typedModuleAssembly.GetType('PowerShellYaml.Module.BuilderUtils')
+$script:TypedYamlConverter = $script:typedModuleAssembly.GetType('PowerShellYaml.Module.TypedYamlConverter')
+$script:YamlDocumentParser = $script:typedModuleAssembly.GetType('PowerShellYaml.Module.YamlDocumentParser')
+$script:PSObjectMetadataExtensions = $script:typedModuleAssembly.GetType('PowerShellYaml.Module.PSObjectMetadataExtensions')
+$YamlMetadataStore = $script:typedModuleAssembly.GetType('PowerShellYaml.Module.YamlMetadataStore')
+$MetadataAwareSerializer = $script:typedModuleAssembly.GetType('PowerShellYaml.Module.MetadataAwareSerializer')
 
-$assemblies = Invoke-LoadAssembly
-
-$yamlDotNetAssembly = $assemblies['yaml']
-$stringQuotedAssembly = $assemblies['quoted']
+# Create type accelerators for test scripts
+$TypeAcceleratorsClass = [psobject].Assembly.GetType('System.Management.Automation.TypeAccelerators')
+$TypeAcceleratorsClass::Add('YamlDocumentParser', $script:YamlDocumentParser)
+$TypeAcceleratorsClass::Add('PSObjectMetadataExtensions', $script:PSObjectMetadataExtensions)
+$TypeAcceleratorsClass::Add('YamlMetadataStore', $YamlMetadataStore)
+$TypeAcceleratorsClass::Add('MetadataAwareSerializer', $MetadataAwareSerializer)
 
 function Get-YamlDocuments {
     [CmdletBinding()]
@@ -273,7 +321,7 @@ function Convert-YamlDocumentToPSObject {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
-        [System.Object]$Node, 
+        [System.Object]$Node,
         [switch]$Ordered
     )
     process {
@@ -392,7 +440,21 @@ function ConvertFrom-Yaml {
         [string]$Yaml,
         [switch]$AllDocuments = $false,
         [switch]$Ordered,
-        [switch]$UseMergingParser = $false
+        [switch]$UseMergingParser = $false,
+        [Parameter(Mandatory = $false)]
+        [ValidateScript({
+            if ($null -eq $_) {
+                throw "The -As parameter cannot be null"
+            }
+            if ($_ -eq [PSCustomObject]) {
+                return $true
+            }
+            if ($_.IsSubclassOf([PowerShellYaml.YamlBase])) {
+                return $true
+            }
+            throw "The -As parameter must be either [PSCustomObject] or a type that inherits from [PowerShellYaml.YamlBase]. Got: $($_.FullName)"
+        })]
+        [type]$As
     )
 
     begin {
@@ -406,14 +468,32 @@ function ConvertFrom-Yaml {
         if ($d -eq '') {
             return
         }
+
+        # Route based on -As parameter (validation already done by ValidateScript)
+        if ($PSBoundParameters.ContainsKey('As')) {
+            if ($As.IsSubclassOf([PowerShellYaml.YamlBase])) {
+                if ($script:TypedYamlConverter) {
+                    return $script:TypedYamlConverter::FromYaml($d, $As)
+                } else {
+                    throw "Typed YAML module not loaded"
+                }
+            } else {
+                # Use YamlDocumentParser to preserve metadata
+                $result = $script:YamlDocumentParser::ParseWithMetadata($d)
+                if ($null -eq $result.Item1) {
+                    return $null
+                }
+                # Create enhanced PSCustomObject from parsed data and metadata
+                return $script:PSObjectMetadataExtensions::CreateEnhancedPSCustomObject($result.Item1, $result.Item2)
+            }
+        }
+
+        # Mode 1: Original hashtable mode (no -As parameter)
         $documents = Get-YamlDocuments -Yaml $d -UseMergingParser:$UseMergingParser
         if (!$documents.Count) {
             return
         }
-        if ($documents.Count -eq 1) {
-            return Convert-YamlDocumentToPSObject $documents[0].RootNode -Ordered:$Ordered
-        }
-        if (!$AllDocuments) {
+        if (($documents.Count -eq 1) -or !$AllDocuments) {
             return Convert-YamlDocumentToPSObject $documents[0].RootNode -Ordered:$Ordered
         }
         $ret = @()
@@ -428,7 +508,7 @@ function Get-Serializer {
     param(
         [Parameter(Mandatory = $true)][SerializationOptions]$Options
     )
-    
+
     $builder = $yamlDotNetAssembly.GetType('YamlDotNet.Serialization.SerializerBuilder')::new()
     $JsonCompatible = $Options.HasFlag([SerializationOptions]::JsonCompatible)
 
@@ -455,9 +535,10 @@ function Get-Serializer {
     $omitNull = $Options.HasFlag([SerializationOptions]::OmitNullValues)
     $useFlowStyle = $Options.HasFlag([SerializationOptions]::UseFlowStyle)
     $useSequenceFlowStyle = $Options.HasFlag([SerializationOptions]::UseSequenceFlowStyle)
+    $useBlockStyle = $Options.HasFlag([SerializationOptions]::UseBlockStyle)
+    $useSequenceBlockStyle = $Options.HasFlag([SerializationOptions]::UseSequenceBlockStyle)
 
-    $stringQuoted = $stringQuotedAssembly.GetType('BuilderUtils')
-    $builder = $stringQuoted::BuildSerializer($builder, $omitNull, $useFlowStyle, $useSequenceFlowStyle, $JsonCompatible)
+    $builder = $script:BuilderUtils::BuildSerializer($builder, $omitNull, $useFlowStyle, $useSequenceFlowStyle, $useBlockStyle, $useSequenceBlockStyle, $JsonCompatible)
 
     return $builder.Build()
 }
@@ -478,7 +559,12 @@ function ConvertTo-Yaml {
 
         [switch]$KeepArray,
 
-        [switch]$Force
+        [switch]$Force,
+
+        # Typed YAML parameters (for YamlBase objects)
+        [switch]$OmitNull,
+
+        [switch]$EmitTags
     )
     begin {
         $d = [System.Collections.Generic.List[object]](New-Object 'System.Collections.Generic.List[object]')
@@ -495,8 +581,58 @@ function ConvertTo-Yaml {
         if ($d.Count -eq 1 -and !($KeepArray)) {
             $d = $d[0]
         }
-        $norm = Convert-PSObjectToGenericObject $d
-        if ($OutFile) {
+
+        # Mode 3: Typed class mode - call C# helper directly
+        if ($d -is [PowerShellYaml.YamlBase]) {
+            if ($script:TypedYamlConverter) {
+                # Extract flow/block style options if using Options parameter
+                $useFlowStyle = $false
+                $useBlockStyle = $false
+                $useSequenceFlowStyle = $false
+                $useSequenceBlockStyle = $false
+                $indentedSequences = $false
+                if ($PSCmdlet.ParameterSetName -eq 'Options') {
+                    $useFlowStyle = $Options.HasFlag([SerializationOptions]::UseFlowStyle)
+                    $useBlockStyle = $Options.HasFlag([SerializationOptions]::UseBlockStyle)
+                    $useSequenceFlowStyle = $Options.HasFlag([SerializationOptions]::UseSequenceFlowStyle)
+                    $useSequenceBlockStyle = $Options.HasFlag([SerializationOptions]::UseSequenceBlockStyle)
+                    $indentedSequences = $Options.HasFlag([SerializationOptions]::WithIndentedSequences)
+                }
+                $yaml = $script:TypedYamlConverter::ToYaml($d, $OmitNull.IsPresent, $EmitTags.IsPresent, $useFlowStyle, $useBlockStyle, $useSequenceFlowStyle, $useSequenceBlockStyle, $indentedSequences)
+            } else {
+                throw "Typed YAML module not loaded"
+            }
+        } elseif ($script:PSObjectMetadataExtensions::IsEnhancedPSCustomObject($d)) {
+            # Use metadata-aware serializer
+            $MetadataAwareSerializer = $script:typedModuleAssembly.GetType('PowerShellYaml.Module.MetadataAwareSerializer')
+            # Extract indentedSequences option if using Options parameter
+            $indentedSequences = $false
+            if ($PSCmdlet.ParameterSetName -eq 'Options') {
+                $indentedSequences = $Options.HasFlag([SerializationOptions]::WithIndentedSequences)
+            }
+            $yaml = $MetadataAwareSerializer::Serialize($d, $indentedSequences, $EmitTags.IsPresent)
+        } else {
+            $wrt = New-Object 'System.IO.StringWriter'
+            $norm = Convert-PSObjectToGenericObject $d
+            if ($PSCmdlet.ParameterSetName -eq 'NoOptions') {
+                $Options = 0
+                if ($JsonCompatible) {
+                    # No indent options :~(
+                    $Options = [SerializationOptions]::JsonCompatible
+                }
+            }
+            try {
+                $serializer = Get-Serializer $Options
+                $serializer.Serialize($wrt, $norm)
+                $yaml = $wrt.ToString()
+            } finally {
+                if ($null -ne $wrt) {
+                    $wrt.Dispose()
+                }
+            }
+        }
+
+       if ($OutFile) {
             $parent = Split-Path $OutFile
             if (!(Test-Path $parent)) {
                 throw 'Parent folder for specified path does not exist'
@@ -504,40 +640,164 @@ function ConvertTo-Yaml {
             if ((Test-Path $OutFile) -and !$Force) {
                 throw 'Target file already exists. Use -Force to overwrite.'
             }
+            [System.IO.File]::WriteAllText($OutFile, $yaml)
+            return
         }
+        return $yaml
+    }
+}
 
-        if ($PSCmdlet.ParameterSetName -eq 'NoOptions') {
-            $Options = 0
-            if ($JsonCompatible) {
-                # No indent options :~(
-                $Options = [SerializationOptions]::JsonCompatible
-            }
-        }
+<#
+.SYNOPSIS
+    Sets a YAML comment for a property on an enhanced PSCustomObject.
+.DESCRIPTION
+    Adds or updates a comment that will be written above the property when
+    converting back to YAML. The object must be created with ConvertFrom-Yaml -As [PSCustomObject].
+.PARAMETER InputObject
+    The enhanced PSCustomObject with YAML metadata.
+.PARAMETER PropertyName
+    The name of the property to add a comment to.
+.PARAMETER Comment
+    The comment text (without # prefix).
+.EXAMPLE
+    $config = ConvertFrom-Yaml $yaml -As ([PSCustomObject])
+    $config | Set-YamlPropertyComment -PropertyName 'Server' -Comment 'Production server address'
+#>
+function Set-YamlPropertyComment {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory, ValueFromPipeline)]
+        [PSCustomObject]$InputObject,
 
-        if ($OutFile) {
-            $wrt = New-Object 'System.IO.StreamWriter' $OutFile
+        [Parameter(Mandatory)]
+        [string]$PropertyName,
+
+        [Parameter(Mandatory)]
+        [string]$Comment
+    )
+
+    process {
+        $metadata = $script:PSObjectMetadataExtensions::GetMetadata($InputObject)
+        if ($metadata) {
+            $metadata.SetPropertyComment($PropertyName, $Comment)
         } else {
-            $wrt = New-Object 'System.IO.StringWriter'
-        }
-
-        try {
-            $serializer = Get-Serializer $Options
-            $serializer.Serialize($wrt, $norm)
-
-            if ($OutFile) {
-                return
-            } else {
-                return $wrt.ToString()
-            }
-        } finally {
-            if ($null -ne $wrt) {
-                $wrt.Dispose()
-            }
+            Write-Warning "Object does not have YAML metadata. Use ConvertFrom-Yaml with -As [PSCustomObject]"
         }
     }
 }
 
+<#
+.SYNOPSIS
+    Gets a YAML comment for a property on an enhanced PSCustomObject.
+.DESCRIPTION
+    Retrieves the comment associated with a property that was preserved during
+    YAML parsing or set with Set-YamlPropertyComment.
+.PARAMETER InputObject
+    The enhanced PSCustomObject with YAML metadata.
+.PARAMETER PropertyName
+    The name of the property to get the comment for.
+.EXAMPLE
+    $comment = Get-YamlPropertyComment -InputObject $config -PropertyName 'Server'
+#>
+function Get-YamlPropertyComment {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory, ValueFromPipeline)]
+        [PSCustomObject]$InputObject,
+
+        [Parameter(Mandatory)]
+        [string]$PropertyName
+    )
+
+    process {
+        $metadata = $script:PSObjectMetadataExtensions::GetMetadata($InputObject)
+        if ($metadata) {
+            return $metadata.GetPropertyComment($PropertyName)
+        } else {
+            Write-Warning "Object does not have YAML metadata. Use ConvertFrom-Yaml with -As [PSCustomObject]"
+            return $null
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+    Sets the scalar style for a property on an enhanced PSCustomObject.
+.DESCRIPTION
+    Controls how a property value will be formatted when converting to YAML
+    (e.g., plain, single-quoted, double-quoted, literal, folded).
+.PARAMETER InputObject
+    The enhanced PSCustomObject with YAML metadata.
+.PARAMETER PropertyName
+    The name of the property to set the style for.
+.PARAMETER Style
+    The scalar style to use (Plain, SingleQuoted, DoubleQuoted, Literal, Folded).
+.EXAMPLE
+    $config | Set-YamlPropertyScalarStyle -PropertyName 'Description' -Style Literal
+#>
+function Set-YamlPropertyScalarStyle {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory, ValueFromPipeline)]
+        [PSCustomObject]$InputObject,
+
+        [Parameter(Mandatory)]
+        [string]$PropertyName,
+
+        [Parameter(Mandatory)]
+        [ValidateSet('Plain', 'SingleQuoted', 'DoubleQuoted', 'Literal', 'Folded')]
+        [string]$Style
+    )
+
+    process {
+        $metadata = $script:PSObjectMetadataExtensions::GetMetadata($InputObject)
+        if ($metadata) {
+            $scalarStyle = [YamlDotNet.Core.ScalarStyle]::$Style
+            $metadata.SetPropertyScalarStyle($PropertyName, $scalarStyle)
+        } else {
+            Write-Warning "Object does not have YAML metadata. Use ConvertFrom-Yaml with -As [PSCustomObject]"
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+    Tests if a PSCustomObject has YAML metadata attached.
+.DESCRIPTION
+    Returns $true if the object was created with ConvertFrom-Yaml -As [PSCustomObject]
+    and has metadata support, $false otherwise.
+.PARAMETER InputObject
+    The PSCustomObject to test.
+.EXAMPLE
+    if (Test-YamlMetadata $config) {
+        $config | Set-YamlPropertyComment -PropertyName 'Name' -Comment 'User name'
+    }
+#>
+function Test-YamlMetadata {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory, ValueFromPipeline)]
+        [PSCustomObject]$InputObject
+    )
+
+    process {
+        return $script:PSObjectMetadataExtensions::IsEnhancedPSCustomObject($InputObject)
+    }
+}
+
+# Typed YAML Module already loaded at module initialization (see lines 107-123)
+
 New-Alias -Name cfy -Value ConvertFrom-Yaml
 New-Alias -Name cty -Value ConvertTo-Yaml
 
-Export-ModuleMember -Function ConvertFrom-Yaml, ConvertTo-Yaml -Alias cfy, cty
+# Export only the public API
+# Typed cmdlets (ConvertFrom-YamlTyped, ConvertTo-YamlTyped) are loaded but not exported.
+# The manifest (.psd1) controls the final export list.
+Export-ModuleMember -Function @(
+    'ConvertFrom-Yaml',
+    'ConvertTo-Yaml',
+    'Set-YamlPropertyComment',
+    'Get-YamlPropertyComment',
+    'Set-YamlPropertyScalarStyle',
+    'Test-YamlMetadata'
+) -Alias @('cfy', 'cty')

@@ -1,2 +1,9 @@
 src/obj
 src/bin
+src/*/obj
+src/*/bin
+src/*/*/obj
+src/*/*/bin
+
+# Test results
+TestResults*.xml
