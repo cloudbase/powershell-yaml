@@ -123,6 +123,9 @@ function Convert-ValueToProperType {
         $intTypes = @([int], [long])
         if ([string]::IsNullOrEmpty($Node.Tag) -eq $false) {
             switch ($Node.Tag) {
+                '!' {
+                    return $Node.Value
+                }
                 'tag:yaml.org,2002:str' {
                     return $Node.Value
                 }
@@ -310,6 +313,20 @@ function Convert-OrderedHashtableToDictionary {
     return $Data
 }
 
+function Convert-GenericOrderedDictionaryToOrderedDictionary {
+    param(
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [System.Object]$Data
+    )
+    # Convert System.Collections.Generic ordered dictionaries to System.Collections.Specialized.OrderedDictionary
+    # to preserve key order when serializing with YamlDotNet
+    $ordered = [System.Collections.Specialized.OrderedDictionary]::new()
+    foreach ($key in $Data.Keys) {
+        $ordered[$key] = Convert-PSObjectToGenericObject $Data[$key]
+    }
+    return $ordered
+}
+
 function Convert-ListToGenericList {
     param(
         [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
@@ -333,13 +350,38 @@ function Convert-PSObjectToGenericObject {
     }
 
     $dataType = $data.GetType()
+
+    # Check for OrderedDictionary types first (before generic IDictionary check)
     if (([System.Collections.Specialized.OrderedDictionary].IsAssignableFrom($dataType))) {
         return Convert-OrderedHashtableToDictionary $data
-    } elseif (([System.Collections.IDictionary].IsAssignableFrom($dataType))) {
+    }
+
+    # Check for System.Collections.Generic ordered dictionary types
+    # These need to be converted to OrderedDictionary to preserve key order in YamlDotNet
+    if ($dataType.IsGenericType) {
+        $genericDef = $dataType.GetGenericTypeDefinition()
+        $genericName = $genericDef.FullName
+
+        # Handle System.Collections.Generic.OrderedDictionary<K,V>
+        if ($genericName -eq 'System.Collections.Generic.OrderedDictionary`2') {
+            return Convert-GenericOrderedDictionaryToOrderedDictionary $data
+        }
+
+        # Handle System.Collections.Generic.SortedDictionary<K,V>
+        if ($genericName -eq 'System.Collections.Generic.SortedDictionary`2') {
+            return Convert-GenericOrderedDictionaryToOrderedDictionary $data
+        }
+    }
+
+    # Generic IDictionary handling (for Hashtable, Dictionary, etc.)
+    if (([System.Collections.IDictionary].IsAssignableFrom($dataType))) {
         return Convert-HashtableToDictionary $data
-    } elseif (([System.Collections.IList].IsAssignableFrom($dataType))) {
+    }
+
+    if (([System.Collections.IList].IsAssignableFrom($dataType))) {
         return Convert-ListToGenericList $data
     }
+
     return $data
 }
 
