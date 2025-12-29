@@ -33,6 +33,26 @@ public sealed class NullValueGraphVisitor : ChainedObjectGraphVisitor
     }
 }
 
+internal static class PSObjectHelper {
+    /// <summary>
+    /// Unwraps a PSObject to its BaseObject if the BaseObject is not a PSCustomObject.
+    /// </summary>
+    /// <param name="obj">The object to potentially unwrap</param>
+    /// <param name="unwrappedType">The type of the unwrapped object</param>
+    /// <returns>The unwrapped object if it was a PSObject wrapping a non-PSCustomObject, otherwise the original object</returns>
+    public static object UnwrapIfNeeded(object obj, out Type unwrappedType) {
+        if (obj is PSObject psObj && psObj.BaseObject != null) {
+            var baseType = psObj.BaseObject.GetType();
+            if (baseType != typeof(System.Management.Automation.PSCustomObject)) {
+                unwrappedType = baseType;
+                return psObj.BaseObject;
+            }
+        }
+        unwrappedType = obj?.GetType();
+        return obj;
+    }
+}
+
 public class BigIntegerTypeConverter : IYamlTypeConverter {
     public bool Accepts(Type type) {
         return typeof(BigInteger).IsAssignableFrom(type);
@@ -76,7 +96,7 @@ public class IDictionaryTypeConverter :  IYamlTypeConverter {
         emitter.Emit(new MappingStart(AnchorName.Empty, TagName.Empty, true, mappingStyle));
         foreach (DictionaryEntry entry in hObj) {
             if(entry.Value == null) {
-                if (this.omitNullValues == true) {
+                if (this.omitNullValues) {
                     continue;
                 }
                 serializer(entry.Key, entry.Key.GetType());
@@ -84,18 +104,8 @@ public class IDictionaryTypeConverter :  IYamlTypeConverter {
                 continue;
             }
             serializer(entry.Key, entry.Key.GetType());
-            var objType = entry.Value.GetType();
-            var val = entry.Value;
-            if (entry.Value is PSObject nestedObj) {
-                var nestedType = nestedObj.BaseObject.GetType();
-                if (nestedType != typeof(System.Management.Automation.PSCustomObject)) {
-                    objType = nestedObj.BaseObject.GetType();
-                    val = nestedObj.BaseObject;
-                }
-                serializer(val, objType);
-            } else {
-                serializer(entry.Value, entry.Value.GetType());
-            }
+            var unwrapped = PSObjectHelper.UnwrapIfNeeded(entry.Value, out var unwrappedType);
+            serializer(unwrapped, unwrappedType);
         }
         emitter.Emit(new MappingEnd());
     }
@@ -124,7 +134,9 @@ public class PSObjectTypeConverter : IYamlTypeConverter {
 
     public void WriteYaml(IEmitter emitter, object value, Type type, ObjectSerializer serializer) {
         var psObj = (PSObject)value;
-        if (!typeof(IDictionary).IsAssignableFrom(psObj.BaseObject.GetType()) && !typeof(PSCustomObject).IsAssignableFrom(psObj.BaseObject.GetType())) {
+        if (psObj.BaseObject != null &&
+            !typeof(IDictionary).IsAssignableFrom(psObj.BaseObject.GetType()) &&
+            !typeof(PSCustomObject).IsAssignableFrom(psObj.BaseObject.GetType())) {
             serializer(psObj.BaseObject, psObj.BaseObject.GetType());
             return;
         }
@@ -132,24 +144,15 @@ public class PSObjectTypeConverter : IYamlTypeConverter {
         emitter.Emit(new MappingStart(AnchorName.Empty, TagName.Empty, true, mappingStyle));
         foreach (var prop in psObj.Properties) {
             if (prop.Value == null) {
-                if (this.omitNullValues == true) {
+                if (this.omitNullValues) {
                     continue;
                 }
                 serializer(prop.Name, prop.Name.GetType());
                 emitter.Emit(new Scalar(AnchorName.Empty, "tag:yaml.org,2002:null", "", ScalarStyle.Plain, true, false));
             } else {
                 serializer(prop.Name, prop.Name.GetType());
-                var objType = prop.Value.GetType();
-                var val = prop.Value;
-                if (prop.Value is PSObject nestedPsObj) {
-                    var nestedType = nestedPsObj.BaseObject.GetType();
-                    if (nestedType != typeof(System.Management.Automation.PSCustomObject)) {
-                        objType = nestedPsObj.BaseObject.GetType();
-                        val = nestedPsObj.BaseObject;
-                    }
-                }
-                serializer(val, objType);
-
+                var unwrapped = PSObjectHelper.UnwrapIfNeeded(prop.Value, out var unwrappedType);
+                serializer(unwrapped, unwrappedType);
             }
         }
         emitter.Emit(new MappingEnd());
@@ -197,7 +200,7 @@ public class FlowStyleAllEmitter: ChainedEventEmitter {
 
     public override void Emit(SequenceStartEventInfo eventInfo, IEmitter emitter){
         eventInfo.Style = SequenceStyle.Flow;
-        nextEmitter.Emit(eventInfo, emitter);
+        base.Emit(eventInfo, emitter);
     }
 }
 
@@ -206,11 +209,11 @@ public class FlowStyleSequenceEmitter: ChainedEventEmitter {
 
     public override void Emit(SequenceStartEventInfo eventInfo, IEmitter emitter){
         eventInfo.Style = SequenceStyle.Flow;
-        nextEmitter.Emit(eventInfo, emitter);
+        base.Emit(eventInfo, emitter);
     }
 }
 
-class BuilderUtils {
+public class BuilderUtils {
     public static SerializerBuilder BuildSerializer(
         SerializerBuilder builder,
         bool omitNullValues = false,
@@ -218,7 +221,7 @@ class BuilderUtils {
         bool useSequenceFlowStyle = false,
         bool jsonCompatible = false) {
 
-        if (jsonCompatible == true) {
+        if (jsonCompatible) {
             useFlowStyle = true;
             useSequenceFlowStyle = true;
         }
@@ -228,14 +231,14 @@ class BuilderUtils {
             .WithTypeConverter(new BigIntegerTypeConverter())
             .WithTypeConverter(new IDictionaryTypeConverter(omitNullValues, useFlowStyle))
             .WithTypeConverter(new PSObjectTypeConverter(omitNullValues, useFlowStyle));
-        if (omitNullValues == true) {
+        if (omitNullValues) {
             builder = builder
                 .WithEmissionPhaseObjectGraphVisitor(args => new NullValueGraphVisitor(args.InnerVisitor));
         }
-        if (useFlowStyle == true) {
+        if (useFlowStyle) {
             builder = builder.WithEventEmitter(next => new FlowStyleAllEmitter(next));
         }
-        if (useSequenceFlowStyle == true) {
+        if (useSequenceFlowStyle) {
             builder = builder.WithEventEmitter(next => new FlowStyleSequenceEmitter(next));
         }
 
