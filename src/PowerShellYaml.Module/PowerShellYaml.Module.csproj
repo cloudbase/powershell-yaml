@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- Target netstandard2.0 for PowerShell 5.1+ compatibility -->
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AssemblyName>PowerShellYaml.Module</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- PowerShell Standard Library for netstandard2.0 compatibility (PS 5.1+) -->
+    <PackageReference Include="PowerShellStandard.Library" Version="5.1.1" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- YamlDotNet - the actual YAML library (will be isolated via AssemblyResolve) -->
+    <PackageReference Include="YamlDotNet" Version="16.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Reference to main assembly (provides shared interface) -->
+    <ProjectReference Include="..\PowerShellYaml\PowerShellYaml.csproj" />
+  </ItemGroup>
+</Project>

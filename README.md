@@ -8,7 +8,7 @@ The ```lib``` folder contains the YamlDotNet assemblies. They are not really req
 
 ## Installation
 
-This module is available for installation via [Powershell Gallery](http://www.powershellgallery.com/). Simply run the following command:
+This module is available for installation via [Powershell Gallery](http://www.powershellgallery.com/).
 
 ```powershell
 Install-Module powershell-yaml
