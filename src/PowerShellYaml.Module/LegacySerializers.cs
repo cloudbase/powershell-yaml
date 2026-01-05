@@ -30,28 +30,23 @@ using YamlDotNet.Serialization.EventEmitters;
 using YamlDotNet.Core.Events;
 using YamlDotNet.Serialization.NamingConventions;
 using YamlDotNet.Serialization.ObjectGraphVisitors;
+using YamlDotNet.Serialization.ObjectGraphTraversalStrategies;
+using YamlDotNet.Serialization.ObjectFactories;
 using YamlDotNet.RepresentationModel;
 
-public sealed class NullValueGraphVisitor : ChainedObjectGraphVisitor
-{
-    public NullValueGraphVisitor(IObjectGraphVisitor<IEmitter> nextVisitor)
-        : base(nextVisitor)
-    {
-    }
 
-    public override bool EnterMapping(IPropertyDescriptor key, IObjectDescriptor value, IEmitter context, ObjectSerializer serializer) {
-        if (value.Value == null) {
-            return false;
-        }
-        return base.EnterMapping(key, value, context, serializer);
-    }
+/// <summary>
+/// Shared depth tracker for type converters
+/// Thread-static to ensure thread safety
+/// </summary>
+internal static class SharedDepthTracker {
+    [ThreadStatic]
+    private static int currentDepth;
 
-    public override bool EnterMapping(IObjectDescriptor key, IObjectDescriptor value, IEmitter context, ObjectSerializer serializer) {
-        if (value.Value == null) {
-            return false;
-        }
-        return base.EnterMapping(key, value, context, serializer);
-    }
+    public static int CurrentDepth => currentDepth;
+
+    public static void Increment() => currentDepth++;
+    public static void Decrement() => currentDepth--;
 }
 
 internal static class PSObjectHelper {
@@ -95,10 +90,12 @@ public class IDictionaryTypeConverter :  IYamlTypeConverter {
 
     private bool omitNullValues;
     private bool useFlowStyle;
+    private readonly int maxDepth;
 
-    public IDictionaryTypeConverter(bool omitNullValues = false, bool useFlowStyle = false) {
+    public IDictionaryTypeConverter(bool omitNullValues = false, bool useFlowStyle = false, int maxDepth = 100) {
         this.omitNullValues = omitNullValues;
         this.useFlowStyle = useFlowStyle;
+        this.maxDepth = maxDepth;
     }
 
     public bool Accepts(Type type) {
@@ -114,32 +111,51 @@ public class IDictionaryTypeConverter :  IYamlTypeConverter {
         var hObj = (IDictionary)value;
         var mappingStyle = this.useFlowStyle ? MappingStyle.Flow : MappingStyle.Block;
 
-        emitter.Emit(new MappingStart(AnchorName.Empty, TagName.Empty, true, mappingStyle));
-        foreach (DictionaryEntry entry in hObj) {
-            if(entry.Value == null) {
-                if (this.omitNullValues) {
+        SharedDepthTracker.Increment();
+        try {
+            // Check if we've exceeded the depth limit
+            if (SharedDepthTracker.CurrentDepth > maxDepth) {
+                // Emit empty object as we're too deep
+                emitter.Emit(new MappingStart(AnchorName.Empty, TagName.Empty, true, MappingStyle.Flow));
+                emitter.Emit(new MappingEnd());
+                return;
+            }
+
+            emitter.Emit(new MappingStart(AnchorName.Empty, TagName.Empty, true, mappingStyle));
+
+            foreach (DictionaryEntry entry in hObj) {
+                if(entry.Value == null) {
+                    if (this.omitNullValues) {
+                        continue;
+                    }
+                    serializer(entry.Key, entry.Key.GetType());
+                    emitter.Emit(new Scalar(AnchorName.Empty, "tag:yaml.org,2002:null", "", ScalarStyle.Plain, true, false));
                     continue;
                 }
+
                 serializer(entry.Key, entry.Key.GetType());
-                emitter.Emit(new Scalar(AnchorName.Empty, "tag:yaml.org,2002:null", "", ScalarStyle.Plain, true, false));
-                continue;
+
+                var unwrapped = PSObjectHelper.UnwrapIfNeeded(entry.Value, out var unwrappedType);
+                serializer(unwrapped, unwrappedType);
             }
-            serializer(entry.Key, entry.Key.GetType());
-            var unwrapped = PSObjectHelper.UnwrapIfNeeded(entry.Value, out var unwrappedType);
-            serializer(unwrapped, unwrappedType);
+        } finally {
+            SharedDepthTracker.Decrement();
         }
+
         emitter.Emit(new MappingEnd());
     }
 }
 
 public class PSObjectTypeConverter : IYamlTypeConverter {
 
-    private bool omitNullValues;
-    private bool useFlowStyle;
+    private readonly bool omitNullValues;
+    private readonly bool useFlowStyle;
+    private readonly int maxDepth;
 
-    public PSObjectTypeConverter(bool omitNullValues = false, bool useFlowStyle = false) {
+    public PSObjectTypeConverter(bool omitNullValues = false, bool useFlowStyle = false, int maxDepth = 100) {
         this.omitNullValues = omitNullValues;
         this.useFlowStyle = useFlowStyle;
+        this.maxDepth = maxDepth;
     }
 
     public bool Accepts(Type type) {
@@ -162,21 +178,38 @@ public class PSObjectTypeConverter : IYamlTypeConverter {
             return;
         }
         var mappingStyle = this.useFlowStyle ? MappingStyle.Flow : MappingStyle.Block;
-        emitter.Emit(new MappingStart(AnchorName.Empty, TagName.Empty, true, mappingStyle));
-        foreach (var prop in psObj.Properties) {
-            if (prop.Value == null) {
-                if (this.omitNullValues) {
-                    continue;
-                }
-                serializer(prop.Name, prop.Name.GetType());
-                emitter.Emit(new Scalar(AnchorName.Empty, "tag:yaml.org,2002:null", "", ScalarStyle.Plain, true, false));
-            } else {
-                serializer(prop.Name, prop.Name.GetType());
-                var unwrapped = PSObjectHelper.UnwrapIfNeeded(prop.Value, out var unwrappedType);
-                serializer(unwrapped, unwrappedType);
+
+        SharedDepthTracker.Increment();
+        try {
+            // Check if we've exceeded the depth limit
+            if (SharedDepthTracker.CurrentDepth > maxDepth) {
+                // Emit empty object as we're too deep
+                emitter.Emit(new MappingStart(AnchorName.Empty, TagName.Empty, true, MappingStyle.Flow));
+                emitter.Emit(new MappingEnd());
+                return;
             }
+
+            emitter.Emit(new MappingStart(AnchorName.Empty, TagName.Empty, true, mappingStyle));
+
+            foreach (var prop in psObj.Properties) {
+                if (prop.Value == null) {
+                    if (this.omitNullValues) {
+                        continue;
+                    }
+                    serializer(prop.Name, prop.Name.GetType());
+                    emitter.Emit(new Scalar(AnchorName.Empty, "tag:yaml.org,2002:null", "", ScalarStyle.Plain, true, false));
+                } else {
+                    serializer(prop.Name, prop.Name.GetType());
+
+                    var unwrapped = PSObjectHelper.UnwrapIfNeeded(prop.Value, out var unwrappedType);
+                    serializer(unwrapped, unwrappedType);
+                }
+            }
+
+            emitter.Emit(new MappingEnd());
+        } finally {
+            SharedDepthTracker.Decrement();
         }
-        emitter.Emit(new MappingEnd());
     }
 }
 
@@ -230,6 +263,53 @@ public class FlowStyleSequenceEmitter(IEventEmitter next) : ChainedEventEmitter(
     }
 }
 
+/// <summary>
+/// Custom traversal strategy that limits recursion depth
+/// Note: This only affects objects that don't have custom type converters.
+/// Hashtables and PSCustomObjects use type converters that bypass this strategy.
+/// </summary>
+public class DepthLimitingTraversalStrategy(
+    ITypeInspector typeInspector,
+    ITypeResolver typeResolver,
+    int maxRecursion,
+    INamingConvention namingConvention,
+    IObjectFactory objectFactory) : FullObjectGraphTraversalStrategy(typeInspector, typeResolver, 1000, namingConvention, objectFactory)
+{
+    private readonly int _maxDepth = maxRecursion;
+
+    protected override void Traverse<TContext>(
+        IPropertyDescriptor propertyDescriptor,
+        object value,
+        IObjectDescriptor valueDescriptor,
+        IObjectGraphVisitor<TContext> visitor,
+        TContext context,
+        Stack<ObjectPathSegment> path,
+        ObjectSerializer serializer)
+    {
+        int maxDepth = _maxDepth;
+        if (maxDepth == 0)
+        {
+            maxDepth = 1;
+        }
+
+        // Check if we should skip this property due to depth limit
+        // Use path.Count as fallback for .NET objects that don't go through type converters
+        // path.Count starts at 1 for root properties, so subtract 1 to get 0-based depth
+        int effectiveDepth = Math.Max(SharedDepthTracker.CurrentDepth, path.Count - 1);
+
+        // Skip if we're beyond the depth limit
+        // Note: depth 0 = root object properties, depth 1 = nested properties, etc.
+        if(effectiveDepth > maxDepth)
+        {
+            // Return here and do not traverse. Max depth reached.
+            return;
+        }
+
+        // Call base implementation to do the actual traversal
+        base.Traverse(propertyDescriptor, value, valueDescriptor, visitor, context, path, serializer);
+    }
+}
+
 public class BuilderUtils {
     public static SerializerBuilder BuildSerializer(
         SerializerBuilder builder,
@@ -238,7 +318,8 @@ public class BuilderUtils {
         bool useSequenceFlowStyle = false,
         bool useBlockStyle = false,
         bool useSequenceBlockStyle = false,
-        bool jsonCompatible = false) {
+        bool jsonCompatible = false,
+        int maxDepth = 100) {
 
         if (jsonCompatible) {
             useFlowStyle = true;
@@ -253,15 +334,24 @@ public class BuilderUtils {
             useSequenceFlowStyle = false;
         }
 
+        // Use custom traversal strategy for depth limiting
+        // Note: This only affects objects without custom type converters
+        builder = builder.WithObjectGraphTraversalStrategyFactory((typeInspector, typeResolver, typeConverters, maximumRecursion) =>
+            new DepthLimitingTraversalStrategy(
+                typeInspector,
+                typeResolver,
+                maxDepth,
+                NullNamingConvention.Instance,
+                new DefaultObjectFactory()
+            )
+        );
+
         builder = builder
             .WithEventEmitter(next => new StringQuotingEmitter(next))
             .WithTypeConverter(new BigIntegerTypeConverter())
-            .WithTypeConverter(new IDictionaryTypeConverter(omitNullValues, useFlowStyle))
-            .WithTypeConverter(new PSObjectTypeConverter(omitNullValues, useFlowStyle));
-        if (omitNullValues) {
-            builder = builder
-                .WithEmissionPhaseObjectGraphVisitor(args => new NullValueGraphVisitor(args.InnerVisitor));
-        }
+            .WithTypeConverter(new IDictionaryTypeConverter(omitNullValues, useFlowStyle, maxDepth))
+            .WithTypeConverter(new PSObjectTypeConverter(omitNullValues, useFlowStyle, maxDepth));
+
         if (useFlowStyle) {
             builder = builder.WithEventEmitter(next => new FlowStyleAllEmitter(next));
         }
@@ -836,7 +926,7 @@ public static class MetadataAwareSerializer {
         };
     }
 
-    public static string Serialize(PSObject obj, bool indentedSequences = false, bool emitTags = false) {
+    public static string Serialize(PSObject obj, bool indentedSequences = false, bool emitTags = false, int maxDepth = 100) {
         var metadata = PSObjectMetadataExtensions.GetMetadata(obj);
         if (metadata == null) {
             throw new InvalidOperationException("Object does not have YAML metadata");
@@ -864,7 +954,7 @@ public static class MetadataAwareSerializer {
         emitter.Emit(new StreamStart());
         emitter.Emit(new DocumentStart());
 
-        SerializePSObject(obj, metadata, emitter, MappingStyle.Block, emitTags);
+        SerializePSObject(obj, metadata, emitter, MappingStyle.Block, emitTags, 0, maxDepth);
 
         emitter.Emit(new DocumentEnd(true));
         emitter.Emit(new StreamEnd());
@@ -872,7 +962,13 @@ public static class MetadataAwareSerializer {
         return stringWriter.ToString();
     }
 
-    private static void SerializePSObject(PSObject obj, YamlMetadataStore metadata, IEmitter emitter, MappingStyle style = MappingStyle.Block, bool emitTags = false) {
+    private static void SerializePSObject(PSObject obj, YamlMetadataStore metadata, IEmitter emitter, MappingStyle style = MappingStyle.Block, bool emitTags = false, int currentDepth = 0, int maxDepth = 100) {
+        if (currentDepth >= maxDepth) {
+            // Emit empty object as default value for the truncated type
+            emitter.Emit(new MappingStart(AnchorName.Empty, TagName.Empty, true, MappingStyle.Flow));
+            emitter.Emit(new MappingEnd());
+            return;
+        }
         emitter.Emit(new MappingStart(AnchorName.Empty, TagName.Empty, true, style));
 
         foreach (var prop in obj.Properties) {
@@ -900,11 +996,11 @@ public static class MetadataAwareSerializer {
                 // Recursively serialize nested enhanced objects
                 var nestedMetadata = metadata.GetNestedMetadata(prop.Name);
                 var nestedMappingStyle = metadata.GetPropertyMappingStyle(prop.Name) ?? MappingStyle.Block;
-                SerializePSObject(nestedPSObj, nestedMetadata, emitter, nestedMappingStyle, emitTags);
+                SerializePSObject(nestedPSObj, nestedMetadata, emitter, nestedMappingStyle, emitTags, currentDepth + 1, maxDepth);
             }
             else if (prop.Value is IList list) {
                 var sequenceStyle = metadata.GetPropertySequenceStyle(prop.Name) ?? SequenceStyle.Block;
-                SerializeList(list, metadata.GetNestedMetadata(prop.Name), emitter, sequenceStyle, emitTags);
+                SerializeList(list, metadata.GetNestedMetadata(prop.Name), emitter, sequenceStyle, emitTags, currentDepth + 1, maxDepth);
             }
             else if (prop.Value is bool boolValue) {
                 // If emitTags is enabled and no stored tag, infer tag from type
@@ -956,7 +1052,13 @@ public static class MetadataAwareSerializer {
         emitter.Emit(new MappingEnd());
     }
 
-    private static void SerializeList(IList list, YamlMetadataStore metadata, IEmitter emitter, SequenceStyle style = SequenceStyle.Block, bool emitTags = false) {
+    private static void SerializeList(IList list, YamlMetadataStore metadata, IEmitter emitter, SequenceStyle style = SequenceStyle.Block, bool emitTags = false, int currentDepth = 0, int maxDepth = 100) {
+        if (currentDepth >= maxDepth) {
+            // Emit empty array as default value for the truncated type
+            emitter.Emit(new SequenceStart(AnchorName.Empty, TagName.Empty, true, SequenceStyle.Flow));
+            emitter.Emit(new SequenceEnd());
+            return;
+        }
         emitter.Emit(new SequenceStart(AnchorName.Empty, TagName.Empty, true, style));
 
         for (int i = 0; i < list.Count; i++) {
@@ -967,7 +1069,7 @@ public static class MetadataAwareSerializer {
             }
             else if (item is PSObject nestedPSObj && PSObjectMetadataExtensions.IsEnhancedPSCustomObject(nestedPSObj)) {
                 var itemMetadata = metadata.GetNestedMetadata($"[{i}]");
-                SerializePSObject(nestedPSObj, itemMetadata, emitter, MappingStyle.Block, emitTags);
+                SerializePSObject(nestedPSObj, itemMetadata, emitter, MappingStyle.Block, emitTags, currentDepth + 1, maxDepth);
             }
             else if (item is bool boolValue) {
                 // If emitTags is enabled, infer tag from type

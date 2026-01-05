@@ -506,7 +506,8 @@ function ConvertFrom-Yaml {
 
 function Get-Serializer {
     param(
-        [Parameter(Mandatory = $true)][SerializationOptions]$Options
+        [Parameter(Mandatory = $true)][SerializationOptions]$Options,
+        [int]$MaxDepth = 100
     )
 
     $builder = $yamlDotNetAssembly.GetType('YamlDotNet.Serialization.SerializerBuilder')::new()
@@ -532,13 +533,16 @@ function Get-Serializer {
         $builder = $builder.WithIndentedSequences()
     }
 
+    # Set a high recursion limit - our custom visitors handle depth limiting and circular references
+    $builder = $builder.WithMaximumRecursion(1000)
+
     $omitNull = $Options.HasFlag([SerializationOptions]::OmitNullValues)
     $useFlowStyle = $Options.HasFlag([SerializationOptions]::UseFlowStyle)
     $useSequenceFlowStyle = $Options.HasFlag([SerializationOptions]::UseSequenceFlowStyle)
     $useBlockStyle = $Options.HasFlag([SerializationOptions]::UseBlockStyle)
     $useSequenceBlockStyle = $Options.HasFlag([SerializationOptions]::UseSequenceBlockStyle)
 
-    $builder = $script:BuilderUtils::BuildSerializer($builder, $omitNull, $useFlowStyle, $useSequenceFlowStyle, $useBlockStyle, $useSequenceBlockStyle, $JsonCompatible)
+    $builder = $script:BuilderUtils::BuildSerializer($builder, $omitNull, $useFlowStyle, $useSequenceFlowStyle, $useBlockStyle, $useSequenceBlockStyle, $JsonCompatible, $MaxDepth)
 
     return $builder.Build()
 }
@@ -564,7 +568,10 @@ function ConvertTo-Yaml {
         # Typed YAML parameters (for YamlBase objects)
         [switch]$OmitNull,
 
-        [switch]$EmitTags
+        [switch]$EmitTags,
+
+        # Maximum recursion depth (default: 50)
+        [int]$Depth = 100
     )
     begin {
         $d = [System.Collections.Generic.List[object]](New-Object 'System.Collections.Generic.List[object]')
@@ -598,7 +605,7 @@ function ConvertTo-Yaml {
                     $useSequenceBlockStyle = $Options.HasFlag([SerializationOptions]::UseSequenceBlockStyle)
                     $indentedSequences = $Options.HasFlag([SerializationOptions]::WithIndentedSequences)
                 }
-                $yaml = $script:TypedYamlConverter::ToYaml($d, $OmitNull.IsPresent, $EmitTags.IsPresent, $useFlowStyle, $useBlockStyle, $useSequenceFlowStyle, $useSequenceBlockStyle, $indentedSequences)
+                $yaml = $script:TypedYamlConverter::ToYaml($d, $OmitNull.IsPresent, $EmitTags.IsPresent, $useFlowStyle, $useBlockStyle, $useSequenceFlowStyle, $useSequenceBlockStyle, $indentedSequences, $Depth)
             } else {
                 throw "Typed YAML module not loaded"
             }
@@ -610,7 +617,7 @@ function ConvertTo-Yaml {
             if ($PSCmdlet.ParameterSetName -eq 'Options') {
                 $indentedSequences = $Options.HasFlag([SerializationOptions]::WithIndentedSequences)
             }
-            $yaml = $MetadataAwareSerializer::Serialize($d, $indentedSequences, $EmitTags.IsPresent)
+            $yaml = $MetadataAwareSerializer::Serialize($d, $indentedSequences, $EmitTags.IsPresent, $Depth)
         } else {
             $wrt = New-Object 'System.IO.StringWriter'
             $norm = Convert-PSObjectToGenericObject $d
@@ -622,7 +629,7 @@ function ConvertTo-Yaml {
                 }
             }
             try {
-                $serializer = Get-Serializer $Options
+                $serializer = Get-Serializer -Options $Options -MaxDepth $Depth
                 $serializer.Serialize($wrt, $norm)
                 $yaml = $wrt.ToString()
             } finally {

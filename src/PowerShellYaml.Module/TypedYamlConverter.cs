@@ -294,7 +294,7 @@ public static class TypedYamlConverter
     /// <summary>
     /// Serialize a YamlBase object to YAML string.
     /// </summary>
-    public static string ToYaml(YamlBase obj, bool omitNull = false, bool emitTags = false, bool useFlowStyle = false, bool useBlockStyle = false, bool useSequenceFlowStyle = false, bool useSequenceBlockStyle = false, bool indentedSequences = false)
+    public static string ToYaml(YamlBase obj, bool omitNull = false, bool emitTags = false, bool useFlowStyle = false, bool useBlockStyle = false, bool useSequenceFlowStyle = false, bool useSequenceBlockStyle = false, bool indentedSequences = false, int maxDepth = 100)
     {
         if (obj is null)
         {
@@ -322,10 +322,10 @@ public static class TypedYamlConverter
             sequenceStyleOverride = SequenceStyle.Flow;
         }
 
-        return SerializeWithMetadata(obj, emitTags, omitNull, mappingStyleOverride, sequenceStyleOverride, indentedSequences);
+        return SerializeWithMetadata(obj, emitTags, omitNull, mappingStyleOverride, sequenceStyleOverride, indentedSequences, maxDepth);
     }
 
-    public static string SerializeWithMetadata(YamlBase obj, bool emitTags, bool omitNull, MappingStyle? mappingStyleOverride, SequenceStyle? sequenceStyleOverride, bool indentedSequences = false)
+    public static string SerializeWithMetadata(YamlBase obj, bool emitTags, bool omitNull, MappingStyle? mappingStyleOverride, SequenceStyle? sequenceStyleOverride, bool indentedSequences = false, int maxDepth = 100)
     {
         var stringWriter = new StringWriter();
 
@@ -354,7 +354,7 @@ public static class TypedYamlConverter
         emitter.Emit(new StreamStart());
         emitter.Emit(new DocumentStart());
 
-        SerializeObject(obj, emitter, emitTags, omitNull, mappingStyleOverride, sequenceStyleOverride);
+        SerializeObject(obj, emitter, emitTags, omitNull, mappingStyleOverride, sequenceStyleOverride, 0, maxDepth);
 
         emitter.Emit(new DocumentEnd(true)); // true = implicit (no "..." marker)
         emitter.Emit(new StreamEnd());
@@ -362,8 +362,15 @@ public static class TypedYamlConverter
         return stringWriter.ToString();
     }
 
-    private static void SerializeObject(YamlBase obj, IEmitter emitter, bool emitTags, bool omitNull, MappingStyle? mappingStyleOverride, SequenceStyle? sequenceStyleOverride)
+    private static void SerializeObject(YamlBase obj, IEmitter emitter, bool emitTags, bool omitNull, MappingStyle? mappingStyleOverride, SequenceStyle? sequenceStyleOverride, int currentDepth, int maxDepth)
     {
+        if (currentDepth >= maxDepth)
+        {
+            // Emit a placeholder string to indicate max depth reached
+            emitter.Emit(new Scalar("..."));
+            return;
+        }
+
         // Determine mapping style with precedence:
         // 1. mappingStyleOverride (if set by user)
         // 2. Object metadata (document-level mapping style)
@@ -379,10 +386,10 @@ public static class TypedYamlConverter
             var documentStyleStr = obj.GetDocumentMappingStyle();
             mappingStyle = documentStyleStr == "Flow" ? MappingStyle.Flow : MappingStyle.Block;
         }
-        SerializeObjectWithStyle(obj, emitter, emitTags, omitNull, mappingStyle, mappingStyleOverride, sequenceStyleOverride);
+        SerializeObjectWithStyle(obj, emitter, emitTags, omitNull, mappingStyle, mappingStyleOverride, sequenceStyleOverride, currentDepth, maxDepth);
     }
 
-    private static void SerializeObjectWithStyle(YamlBase obj, IEmitter emitter, bool emitTags, bool omitNull, MappingStyle mappingStyle, MappingStyle? mappingStyleOverride, SequenceStyle? sequenceStyleOverride)
+    private static void SerializeObjectWithStyle(YamlBase obj, IEmitter emitter, bool emitTags, bool omitNull, MappingStyle mappingStyle, MappingStyle? mappingStyleOverride, SequenceStyle? sequenceStyleOverride, int currentDepth, int maxDepth)
     {
         var dict = obj.ToDictionary();
         var metadata = obj.GetAllMetadata();
@@ -424,18 +431,25 @@ public static class TypedYamlConverter
             emitter.Emit(new Scalar(yamlKey));
 
             // Emit value with metadata
-            EmitValue(value, emitter, obj, propName, emitTags, omitNull, mappingStyleOverride, sequenceStyleOverride);
+            EmitValue(value, emitter, obj, propName, emitTags, omitNull, mappingStyleOverride, sequenceStyleOverride, currentDepth, maxDepth);
         }
 
         emitter.Emit(new MappingEnd());
     }
 
-    private static void EmitValue(object? value, IEmitter emitter, YamlBase? parentObj, string? propertyName, bool emitTags, bool omitNull, MappingStyle? mappingStyleOverride, SequenceStyle? sequenceStyleOverride)
+    private static void EmitValue(object? value, IEmitter emitter, YamlBase? parentObj, string? propertyName, bool emitTags, bool omitNull, MappingStyle? mappingStyleOverride, SequenceStyle? sequenceStyleOverride, int currentDepth, int maxDepth)
     {
         if (value is null)
         {
             var nullTag = emitTags ? new TagName("tag:yaml.org,2002:null") : TagName.Empty;
             emitter.Emit(new Scalar(AnchorName.Empty, nullTag, "null", ScalarStyle.Plain, !emitTags, false));
+            return;
+        }
+
+        // Check depth limit for nested structures
+        if (currentDepth >= maxDepth)
+        {
+            emitter.Emit(new Scalar("..."));
             return;
         }
 
@@ -461,7 +475,7 @@ public static class TypedYamlConverter
                 mappingStyle = MappingStyle.Block;
             }
 
-            SerializeObjectWithStyle(nestedYaml, emitter, emitTags, omitNull, mappingStyle, mappingStyleOverride, sequenceStyleOverride);
+            SerializeObjectWithStyle(nestedYaml, emitter, emitTags, omitNull, mappingStyle, mappingStyleOverride, sequenceStyleOverride, currentDepth + 1, maxDepth);
             return;
         }
 
@@ -494,7 +508,7 @@ public static class TypedYamlConverter
                 }
 
                 emitter.Emit(new Scalar(kvp.Key));
-                EmitValue(kvp.Value, emitter, null, null, emitTags, omitNull, mappingStyleOverride, sequenceStyleOverride);
+                EmitValue(kvp.Value, emitter, null, null, emitTags, omitNull, mappingStyleOverride, sequenceStyleOverride, currentDepth + 1, maxDepth);
             }
             emitter.Emit(new MappingEnd());
             return;
@@ -526,7 +540,7 @@ public static class TypedYamlConverter
             foreach (var item in list)
             {
                 // Note: We don't skip null items in arrays - preserve array structure
-                EmitValue(item, emitter, null, null, emitTags, omitNull, mappingStyleOverride, sequenceStyleOverride);
+                EmitValue(item, emitter, null, null, emitTags, omitNull, mappingStyleOverride, sequenceStyleOverride, currentDepth + 1, maxDepth);
             }
             emitter.Emit(new SequenceEnd());
             return;
