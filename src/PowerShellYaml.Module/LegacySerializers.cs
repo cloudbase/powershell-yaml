@@ -926,7 +926,7 @@ public static class MetadataAwareSerializer {
         };
     }
 
-    public static string Serialize(PSObject obj, bool indentedSequences = false, bool emitTags = false, int maxDepth = 100) {
+    public static string Serialize(PSObject obj, bool indentedSequences = false, bool emitTags = false, int maxDepth = 100, bool useFlowStyle = false, bool useBlockStyle = false) {
         var metadata = PSObjectMetadataExtensions.GetMetadata(obj);
         if (metadata == null) {
             throw new InvalidOperationException("Object does not have YAML metadata");
@@ -954,7 +954,18 @@ public static class MetadataAwareSerializer {
         emitter.Emit(new StreamStart());
         emitter.Emit(new DocumentStart());
 
-        SerializePSObject(obj, metadata, emitter, MappingStyle.Block, emitTags, 0, maxDepth);
+        // Determine mapping style: explicit options override metadata
+        MappingStyle mappingStyle;
+        if (useFlowStyle) {
+            mappingStyle = MappingStyle.Flow;
+        } else if (useBlockStyle) {
+            mappingStyle = MappingStyle.Block;
+        } else {
+            // Use the original mapping style from metadata, or default to Block
+            mappingStyle = metadata.DocumentMappingStyle ?? MappingStyle.Block;
+        }
+
+        SerializePSObject(obj, metadata, emitter, mappingStyle, emitTags, 0, maxDepth);
 
         emitter.Emit(new DocumentEnd(true));
         emitter.Emit(new StreamEnd());

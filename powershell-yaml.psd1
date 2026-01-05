@@ -43,6 +43,9 @@ New Features:
 * Enhanced PSCustomObject mode with metadata preservation
 * Validation for non-YamlBase nested classes with clear error messages
 * Automatic property name conversion (PascalCase -> hyphenated-case)
+* Added -Depth flag to ConvertTo-Yaml
+* Added -EmitTags to ConvertTo-Yaml
+* Added option to emit yaml using explicit block style (override the round-trip style from the document)
 
 Usage:
   # PSCustomObject mode with metadata
@@ -51,6 +54,13 @@ Usage:
   # Typed mode with YamlBase classes
   class MyConfig : YamlBase { [string]$Name }
   $config = $yaml | ConvertFrom-Yaml -As ([MyConfig])
+
+  # Convert flow style doc to block style doc
+  $yaml = '{hello: world, goodbye: world}'
+  ConvertFrom-Yaml $yaml -As ([pscustomobject]) | ConvertTo-Yaml -Options UseBlockStyle
+  hello: world
+  goodbye: world
+
 
 See examples/ for detailed usage patterns.
 

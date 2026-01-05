@@ -612,12 +612,16 @@ function ConvertTo-Yaml {
         } elseif ($script:PSObjectMetadataExtensions::IsEnhancedPSCustomObject($d)) {
             # Use metadata-aware serializer
             $MetadataAwareSerializer = $script:typedModuleAssembly.GetType('PowerShellYaml.Module.MetadataAwareSerializer')
-            # Extract indentedSequences option if using Options parameter
+            # Extract style options if using Options parameter
             $indentedSequences = $false
+            $useFlowStyle = $false
+            $useBlockStyle = $false
             if ($PSCmdlet.ParameterSetName -eq 'Options') {
                 $indentedSequences = $Options.HasFlag([SerializationOptions]::WithIndentedSequences)
+                $useFlowStyle = $Options.HasFlag([SerializationOptions]::UseFlowStyle)
+                $useBlockStyle = $Options.HasFlag([SerializationOptions]::UseBlockStyle)
             }
-            $yaml = $MetadataAwareSerializer::Serialize($d, $indentedSequences, $EmitTags.IsPresent, $Depth)
+            $yaml = $MetadataAwareSerializer::Serialize($d, $indentedSequences, $EmitTags.IsPresent, $Depth, $useFlowStyle, $useBlockStyle)
         } else {
             $wrt = New-Object 'System.IO.StringWriter'
             $norm = Convert-PSObjectToGenericObject $d
