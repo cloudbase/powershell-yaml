@@ -176,7 +176,7 @@ if (!$SkipTests) {
     $testResult = Invoke-Pester ./Tests/*.Tests.ps1 -Output Normal -PassThru
 
     Write-Host ""
-    if ($testResult.FailedCount -eq 0) {
+    if (($testResult.FailedCount + $testResult.FailedBlocksCount + $testResult.FailedContainersCount) -eq 0) {
         Write-Host "✓ All $($testResult.PassedCount) tests passed" -ForegroundColor Green
     } else {
         Write-Host "✗ $($testResult.FailedCount) tests failed" -ForegroundColor Red
